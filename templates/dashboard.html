@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ComfyUI Portal</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial;margin:20px}
+    .row{display:flex;gap:16px;flex-wrap:wrap}
+    .card{border:1px solid #ddd;border-radius:8px;padding:12px;flex:1;min-width:320px}
+    input,textarea,select{width:100%;padding:8px;margin:6px 0}
+    button{padding:8px 12px}
+    .muted{color:#666}
+    pre{background:#f7f7f7;padding:8px;border-radius:6px;white-space:pre-wrap}
+  </style>
+</head>
+<body>
+  <h2>ComfyUI 工作流面板</h2>
+  <div class="row">
+    <div class="card">
+      <h3>创建任务</h3>
+      <form id="jobForm">
+        <label>工作流文件（workflows/ 下）</label>
+        <input name="workflow" value="default.json" />
+        <label>上传图片（可选）</label>
+        <input type="file" name="file1" />
+        <label>覆盖参数 overrides(JSON)</label>
+        <textarea name="overrides" rows="6" placeholder='{"positive":"a cat","negative":"","seed":123}'>
+        </textarea>
+        <button type="submit">提交任务</button>
+      </form>
+      <div id="createResp" class="muted"></div>
+    </div>
+    <div class="card">
+      <h3>任务状态</h3>
+      <input id="jobId" placeholder="job_id" />
+      <button id="btnPoll">开始轮询</button>
+      <div id="status"></div>
+      <div id="images"></div>
+    </div>
+  </div>
+
+<script>
+const $ = s=>document.querySelector(s);
+$('#jobForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  try{
+    const res = await fetch('/api/jobs', {method:'POST', body:fd});
+    const j = await res.json();
+    $('#createResp').textContent = JSON.stringify(j);
+    if(j.ok){ $('#jobId').value = j.job_id; }
+  }catch(err){ $('#createResp').textContent = err+''; }
+});
+
+$('#btnPoll').addEventListener('click', async ()=>{
+  const id = $('#jobId').value.trim();
+  if(!id) return;
+  async function step(){
+    const r = await fetch(`/api/jobs/${id}/status`);
+    const j = await r.json();
+    $('#status').innerHTML = `<pre>${JSON.stringify(j,null,2)}</pre>`;
+    if(j.ok && j.outputs){
+      const imgs = (j.outputs||[]).map(o=>`<img style="max-width:180px;margin:4px" src="/api/comfy/view?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}" />`).join('');
+      $('#images').innerHTML = imgs;
+    } else if(j.ok && (j.status==='queued' || j.status==='running' || j.status==='submitting')){
+      setTimeout(step, 1200);
+    }
+  }
+  step();
+});
+</script>
+</body>
+</html>

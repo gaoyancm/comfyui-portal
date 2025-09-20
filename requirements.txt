@@ -1,0 +1,1 @@
+flask\npython-dotenv\nwerkzeug\nrequests\npandas\nopenpyxl\n
