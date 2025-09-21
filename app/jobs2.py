@@ -1,6 +1,7 @@
-from flask import Blueprint, current_app, request, jsonify
+from flask import Blueprint, current_app, request, jsonify, send_file
 import os, uuid, threading, queue, time, json, requests
 from functools import wraps
+import io, zipfile
 
 jobs_bp = Blueprint("jobs", __name__)
 
@@ -290,3 +291,56 @@ def proxy_view():
     if r.status_code != 200:
         return jsonify({"ok": False, "msg": r.text}), 502
     return Response(r.iter_content(8192), content_type=r.headers.get("Content-Type","image/png"))
+
+
+@jobs_bp.get("/jobs/<job_id>/artifacts")
+@login_required
+def job_artifacts(job_id):
+    j = _jobs.get(job_id)
+    if not j:
+        return jsonify({"ok": False, "msg": "不存在的任务"}), 404
+    return jsonify({"ok": True, "artifacts": j.get("outputs", [])})
+
+
+@jobs_bp.get("/jobs/<job_id>/download")
+@login_required
+def download_single(job_id):
+    j = _jobs.get(job_id)
+    if not j:
+        return jsonify({"ok": False, "msg": "不存在的任务"}), 404
+    filename = request.args.get("filename")
+    subfolder = request.args.get("subfolder", "")
+    ftype = request.args.get("type", "output")
+    if not filename:
+        return jsonify({"ok": False, "msg": "缺少 filename"}), 400
+    # proxy from ComfyUI and set attachment disposition
+    r = requests.get(f"{current_app.config['COMFY_URL']}/view", params={"filename": filename, "subfolder": subfolder, "type": ftype}, stream=True, timeout=120)
+    if r.status_code != 200:
+        return jsonify({"ok": False, "msg": r.text}), 502
+    from flask import Response
+    resp = Response(r.iter_content(8192), content_type=r.headers.get("Content-Type","application/octet-stream"))
+    disp_name = filename
+    resp.headers['Content-Disposition'] = f'attachment; filename="{disp_name}"'
+    return resp
+
+
+@jobs_bp.get("/jobs/<job_id>/download.zip")
+@login_required
+def download_zip(job_id):
+    j = _jobs.get(job_id)
+    if not j:
+        return jsonify({"ok": False, "msg": "不存在的任务"}), 404
+    artifacts = j.get("outputs", [])
+    if not artifacts:
+        return jsonify({"ok": False, "msg": "该任务没有可下载的产物"}), 400
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for a in artifacts:
+            params = {"filename": a.get("filename"), "subfolder": a.get("subfolder",""), "type": a.get("type","output")}
+            r = requests.get(f"{current_app.config['COMFY_URL']}/view", params=params, timeout=120)
+            if r.status_code != 200:
+                continue
+            arcname = a.get("filename") or f"file_{len(zf.namelist())+1}"
+            zf.writestr(arcname, r.content)
+    buf.seek(0)
+    return send_file(buf, mimetype='application/zip', as_attachment=True, download_name=f'{job_id}.zip')

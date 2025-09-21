@@ -101,8 +101,13 @@ document.getElementById('btnPoll').addEventListener('click', async ()=>{
     const j = await r.json();
     document.getElementById('status').innerHTML = `<pre>${JSON.stringify(j,null,2)}</pre>`;
     if(j.ok && j.outputs){
-      const imgs = (j.outputs||[]).map(o=>`<img style=\"max-width:180px;margin:4px\" src=\"/api/comfy/view?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}\" />`).join('');
-      document.getElementById('images').innerHTML = imgs;
+      const imgs = (j.outputs||[]).map(o=>{
+        const url = `/api/comfy/view?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;
+        const dl = `/api/jobs/${id}/download?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;
+        return `<div style=\"display:inline-block;text-align:center;margin:4px\"><img style=\"max-width:180px;display:block\" src=\"${url}\" /><a href=\"${dl}\">下载</a></div>`
+      }).join('');
+      const zip = `<div style=\"margin:8px 0\"><a href=\"/api/jobs/${id}/download.zip\">下载全部为 ZIP</a></div>`;
+      document.getElementById('images').innerHTML = zip + imgs;
     } else if(j.ok && (j.status==='queued' || j.status==='running' || j.status==='submitting')){
       setTimeout(step, 1200);
     }
