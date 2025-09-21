@@ -1,0 +1,12 @@
+{
+  "name": "L6_API",
+  "fields": [
+    {"name": "positive", "label": "正面提示词", "type": "textarea", "default": ""},
+    {"name": "negative", "label": "负面提示词", "type": "textarea", "default": ""},
+    {"name": "seed", "label": "随机种子", "type": "integer", "default": 0},
+    {"name": "steps", "label": "步数", "type": "integer", "default": 20},
+    {"name": "cfg", "label": "CFG", "type": "number", "default": 4.0},
+    {"name": "image", "label": "输入图片（可选）", "type": "file"}
+  ],
+  "mapping": []
+}
