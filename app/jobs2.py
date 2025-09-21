@@ -2,6 +2,7 @@ from flask import Blueprint, current_app, request, jsonify, send_file
 import os, uuid, threading, queue, time, json, requests
 from functools import wraps
 import io, zipfile
+from datetime import datetime
 
 jobs_bp = Blueprint("jobs", __name__)
 
@@ -26,7 +27,7 @@ def _worker():
         try:
             _run_job(job_id)
         except Exception as e:
-            _jobs[job_id].update(status="error", error=str(e))
+            _jobs[job_id].update(status="error", error=str(e), done_at=time.time())
         finally:
             _task_q.task_done()
 
@@ -167,8 +168,8 @@ def _run_job(job_id):
         j["progress"] = min(95, j.get("progress", 10) + 5)
         time.sleep(1)
     if not outputs:
-        j.update(status="timeout", progress=100); return
-    j.update(status="finished", progress=100, outputs=outputs)
+        j.update(status="timeout", progress=100, done_at=time.time()); return
+    j.update(status="finished", progress=100, outputs=outputs, done_at=time.time())
 
 
 def _list_workflows_impl():
@@ -260,7 +261,18 @@ def create_job():
         mapping = []
 
     job_id = uuid.uuid4().hex
-    _jobs[job_id] = {"status": "queued", "progress": 0, "wf_path": wf_path, "overrides": overrides, "mapping": mapping}
+    # attach minimal metadata for history
+    from flask import session
+    _jobs[job_id] = {
+        "status": "queued",
+        "progress": 0,
+        "wf_path": wf_path,
+        "workflow": wf,
+        "created_at": time.time(),
+        "user": session.get("user"),
+        "overrides": overrides,
+        "mapping": mapping,
+    }
     _task_q.put(job_id)
     return jsonify({"ok": True, "job_id": job_id})
 
@@ -300,6 +312,27 @@ def job_artifacts(job_id):
     if not j:
         return jsonify({"ok": False, "msg": "不存在的任务"}), 404
     return jsonify({"ok": True, "artifacts": j.get("outputs", [])})
+
+
+@jobs_bp.get("/jobs")
+@login_required
+def list_jobs():
+    # return light-weight summaries
+    limit = int(request.args.get("limit", 100))
+    items = []
+    for jid, j in _jobs.items():
+        items.append({
+            "job_id": jid,
+            "status": j.get("status"),
+            "progress": j.get("progress"),
+            "workflow": j.get("workflow"),
+            "created_at": j.get("created_at"),
+            "done_at": j.get("done_at"),
+            "outputs": len(j.get("outputs", [])),
+            "error": j.get("error"),
+        })
+    items.sort(key=lambda x: x.get("created_at") or 0, reverse=True)
+    return jsonify({"ok": True, "items": items[:limit]})
 
 
 @jobs_bp.get("/jobs/<job_id>/download")

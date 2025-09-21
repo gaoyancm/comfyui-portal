@@ -12,3 +12,10 @@ def home():
 @pages_bp.get("/login")
 def login_page():
     return render_template("login.html")
+
+
+@pages_bp.get("/history")
+def history_page():
+    if "user" not in session:
+        return redirect(url_for("pages.login_page"))
+    return render_template("history.html")
