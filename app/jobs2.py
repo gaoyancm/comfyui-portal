@@ -41,6 +41,30 @@ def attach_app(app):
         threading.Thread(target=_worker, daemon=True).start()
         _worker_thread_started = True
 
+# servers mapping helpers
+SERVERS_JSON = os.path.join(os.path.dirname(os.path.dirname(__file__)), "workflows", "servers.json")
+
+def _load_servers_map():
+    try:
+        with open(SERVERS_JSON, "r", encoding="utf-8") as f:
+            return json.load(f) or {}
+    except Exception:
+        return {}
+
+def _resolve_server_default():
+    return (_flask_app or current_app).config["COMFY_URL"].rstrip('/')
+
+def _resolve_server_for_workflow(wf_name, explicit=None, form_default=None):
+    if explicit:
+        return explicit.rstrip('/')
+    if form_default:
+        return form_default.rstrip('/')
+    m = _load_servers_map()
+    v = m.get(wf_name) or m.get(os.path.splitext(wf_name)[0])
+    if v:
+        return str(v).rstrip('/')
+    return _resolve_server_default()
+
 
 def _deep_set(obj, path, value):
     # path like 3.inputs.seed or nodes.5.inputs.text
@@ -128,7 +152,7 @@ def _upload_to_comfy(file_path):
 
 def _run_job(job_id):
     j = _jobs[job_id]
-    comfy = _comfy_url()
+    comfy = j.get("comfy_url") or _comfy_url()
     # load workflow json
     with open(j["wf_path"], "r", encoding="utf-8") as f:
         prompt_json = json.load(f)
@@ -253,6 +277,10 @@ def create_job():
         f.save(fpath)
         files_meta.append({"field": key, "name": f.filename, "path": fpath})
 
+    # optional per-request server (admin/internal use)
+    explicit_server = request.form.get("server") or request.args.get("server")
+    form_default_server = None
+
     if use_form:
         base = os.path.splitext(wf)[0]
         form_path = os.path.join("workflows", f"{base}.form.json")
@@ -263,6 +291,7 @@ def create_job():
                     form_def = json.load(f)
             except Exception:
                 pass
+        form_default_server = form_def.get("server")
         form_values = {}
         for fld in form_def.get("fields", []):
             nm = fld.get("name")
@@ -283,12 +312,14 @@ def create_job():
     job_id = uuid.uuid4().hex
     # attach minimal metadata for history
     from flask import session
+    comfy_url = _resolve_server_for_workflow(wf, explicit_server, form_default_server)
     _jobs[job_id] = {
         "status": "queued",
         "progress": 0,
         "wf_path": wf_path,
         "workflow": wf,
         "created_at": time.time(),
+        "comfy_url": comfy_url,
         "user": session.get("user"),
         "overrides": overrides,
         "mapping": mapping,
@@ -319,6 +350,7 @@ def proxy_view():
     filename = request.args.get("filename"); subfolder = request.args.get("subfolder","" ); typ = request.args.get("type","output")
     if not filename:
         return jsonify({"ok": False, "msg": "缺少 filename"}), 400
+    # fallback proxy (uses default server). Prefer job-specific route below
     r = requests.get(f"{_comfy_url()}/view", params={"filename": filename, "subfolder": subfolder, "type": typ}, stream=True, timeout=60)
     if r.status_code != 200:
         return jsonify({"ok": False, "msg": r.text}), 502
@@ -397,3 +429,18 @@ def download_zip(job_id):
             zf.writestr(arcname, r.content)
     buf.seek(0)
     return send_file(buf, mimetype='application/zip', as_attachment=True, download_name=f'{job_id}.zip')
+
+
+@jobs_bp.get("/health")
+@login_required
+def health():
+    server = (request.args.get("server") or _resolve_server_default()).rstrip('/')
+    t0 = time.time()
+    try:
+        r = requests.get(f"{server}/system_stats", timeout=5)
+        if r.status_code != 200:
+            r = requests.get(server, timeout=5)
+        latency = int((time.time() - t0) * 1000)
+        return jsonify({"ok": True, "server": server, "latency_ms": latency})
+    except Exception as e:
+        return jsonify({"ok": False, "server": server, "error": str(e)}), 502

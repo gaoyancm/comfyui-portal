@@ -115,7 +115,8 @@ def login():
     session["user"] = u
     session["sid"] = sid
     ACTIVE_SESSIONS[u] = {"sid": sid, "last_seen": now}
-    return jsonify({"ok": True, "user": u})
+    session["role"] = info.get("role", "user")
+    return jsonify({"ok": True, "user": u, "role": session["role"]})
 
 
 @auth_bp.get("/auth/status")
@@ -135,4 +136,3 @@ def logout():
         ACTIVE_SESSIONS.pop(u, None)
     session.clear()
     return jsonify({"ok": True})
-

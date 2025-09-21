@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>后台设置 - 服务器映射</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial;margin:20px}
+    input{width:480px;padding:6px;margin:4px 0}
+    table{border-collapse:collapse}
+    th,td{border:1px solid #ddd;padding:6px}
+    th{background:#f5f5f5}
+    .ok{color:#0a0}
+    .err{color:#c00}
+  </style>
+</head>
+<body>
+  <h2>服务器映射（后台）</h2>
+  <p>说明：仅管理员登录可见。为每个工作流配置 ComfyUI 服务器（ngrok 动态地址也可）。保存后立即生效。</p>
+  <table id="tbl">
+    <thead><tr><th>工作流</th><th>服务器地址</th><th>检查</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <div style="margin-top:10px">
+    <button id="btnSave">保存</button>
+    <span id="msg"></span>
+  </div>
+
+<script>
+async function listWorkflows(){
+  const w = await (await fetch('/api/workflows')).json();
+  const map = await (await fetch('/api/admin/servers')).json();
+  const m = map.servers || {}; const set=new Set(Object.keys(m));
+  const tb = document.querySelector('#tbl tbody'); tb.innerHTML='';
+  (w.items||[]).forEach(it=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${it.workflow}</td><td><input value="${m[it.workflow]||''}" data-wf="${it.workflow}" /></td><td><button class="chk">检查</button> <span class="res"></span></td>`;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll('.chk').forEach(btn=>{
+    btn.onclick = async (e)=>{
+      const tr = e.target.closest('tr');
+      const url = tr.querySelector('input').value.trim();
+      const span = tr.querySelector('.res'); span.textContent='...';
+      if(!url){ span.textContent='(空)'; return; }
+      const r = await fetch('/api/health?server='+encodeURIComponent(url));
+      const j = await r.json();
+      if(j.ok){ span.textContent = '可用 '+j.latency_ms+'ms'; span.className='res ok'; }
+      else { span.textContent = '不可用 '+(j.error||''); span.className='res err'; }
+    }
+  });
+}
+
+async function save(){
+  const inputs = Array.from(document.querySelectorAll('#tbl tbody input'));
+  const servers = {}; inputs.forEach(i=>{ if(i.value.trim()) servers[i.dataset.wf]=i.value.trim(); });
+  const r = await fetch('/api/admin/servers', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({servers})});
+  const j = await r.json();
+  document.getElementById('msg').textContent = j.ok? '已保存': ('保存失败: '+(j.msg||''));
+}
+
+document.getElementById('btnSave').onclick = save;
+listWorkflows();
+</script>
+</body>
+</html>

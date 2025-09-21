@@ -22,10 +22,12 @@ def create_app():
 
     from .auth import auth_bp
     from . import jobs2
+    from .admin import admin_bp
     jobs_bp = jobs2.jobs_bp
     from .pages import pages_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(jobs_bp, url_prefix="/api")
+    app.register_blueprint(admin_bp)
     app.register_blueprint(pages_bp)
 
     os.makedirs(app.config["UPLOAD_DIR"], exist_ok=True)
