@@ -21,7 +21,8 @@ def create_app():
     )
 
     from .auth import auth_bp
-    from .jobs2 import jobs_bp
+    from . import jobs2
+    jobs_bp = jobs2.jobs_bp
     from .pages import pages_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(jobs_bp, url_prefix="/api")
@@ -29,6 +30,11 @@ def create_app():
 
     os.makedirs(app.config["UPLOAD_DIR"], exist_ok=True)
     os.makedirs(app.config["RESULTS_DIR"], exist_ok=True)
+    # attach app to background worker after blueprints are ready
+    try:
+        jobs2.attach_app(app)
+    except Exception:
+        pass
     return app
 
 app = create_app()

@@ -9,6 +9,7 @@ jobs_bp = Blueprint("jobs", __name__)
 # In-memory queue and job table
 _task_q = queue.Queue()
 _jobs = {}  # job_id -> {status, progress, prompt_id, outputs:[], error, wf_path, mapping}
+_flask_app = None  # set via attach_app(app)
 
 
 def login_required(fn):
@@ -31,8 +32,14 @@ def _worker():
         finally:
             _task_q.task_done()
 
+_worker_thread_started = False
 
-threading.Thread(target=_worker, daemon=True).start()
+def attach_app(app):
+    global _flask_app, _worker_thread_started
+    _flask_app = app
+    if not _worker_thread_started:
+        threading.Thread(target=_worker, daemon=True).start()
+        _worker_thread_started = True
 
 
 def _deep_set(obj, path, value):
@@ -97,9 +104,16 @@ def _apply_overrides(prompt_json, overrides):
     return {**prompt_json, **overrides}
 
 
+def _comfy_url():
+    if _flask_app is not None:
+        return _flask_app.config["COMFY_URL"].rstrip('/')
+    # fallback (inside request context only)
+    return current_app.config["COMFY_URL"].rstrip('/')
+
+
 def _upload_to_comfy(file_path):
     # Best-effort upload to ComfyUI
-    url = f"{current_app.config['COMFY_URL'].rstrip('/')}/upload/image"
+    url = f"{_comfy_url()}/upload/image"
     try:
         with open(file_path, 'rb') as fp:
             r = requests.post(url, files={'image': (os.path.basename(file_path), fp)}, timeout=60)
@@ -114,7 +128,7 @@ def _upload_to_comfy(file_path):
 
 def _run_job(job_id):
     j = _jobs[job_id]
-    comfy = current_app.config["COMFY_URL"]
+    comfy = _comfy_url()
     # load workflow json
     with open(j["wf_path"], "r", encoding="utf-8") as f:
         prompt_json = json.load(f)
@@ -305,7 +319,7 @@ def proxy_view():
     filename = request.args.get("filename"); subfolder = request.args.get("subfolder","" ); typ = request.args.get("type","output")
     if not filename:
         return jsonify({"ok": False, "msg": "缺少 filename"}), 400
-    r = requests.get(f"{current_app.config['COMFY_URL']}/view", params={"filename": filename, "subfolder": subfolder, "type": typ}, stream=True, timeout=60)
+    r = requests.get(f"{_comfy_url()}/view", params={"filename": filename, "subfolder": subfolder, "type": typ}, stream=True, timeout=60)
     if r.status_code != 200:
         return jsonify({"ok": False, "msg": r.text}), 502
     return Response(r.iter_content(8192), content_type=r.headers.get("Content-Type","image/png"))
@@ -376,7 +390,7 @@ def download_zip(job_id):
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
         for a in artifacts:
             params = {"filename": a.get("filename"), "subfolder": a.get("subfolder",""), "type": a.get("type","output")}
-            r = requests.get(f"{current_app.config['COMFY_URL']}/view", params=params, timeout=120)
+            r = requests.get(f"{_comfy_url()}/view", params=params, timeout=120)
             if r.status_code != 200:
                 continue
             arcname = a.get("filename") or f"file_{len(zf.namelist())+1}"
