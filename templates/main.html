@@ -17,6 +17,7 @@
 </head>
 <body>
   <h2>ComfyUI 工作流面板</h2>
+  <div id="userbar" class="muted" style="margin-bottom:10px"></div>
   <div class="row">
     <div class="card">
       <h3>选择工作流并填写表单</h3>
@@ -63,6 +64,15 @@ function renderField(container, f){
   if(f.default!==undefined && f.type!=='file') input.value = f.default;
   wrap.appendChild(label); wrap.appendChild(input);
   container.appendChild(wrap);
+}
+
+async function authGuard(){
+  const r = await fetch('/auth/status');
+  if(r.status === 401){ location.href = '/login'; return false; }
+  const j = await r.json();
+  const bar = document.getElementById('userbar');
+  bar.innerHTML = `已登录：${(j.user||'')} <a href="/logout" style="margin-left:8px">退出</a>`;
+  return true;
 }
 
 async function loadWorkflows(){
@@ -115,7 +125,7 @@ document.getElementById('btnPoll').addEventListener('click', async ()=>{
   step();
 });
 
-loadWorkflows();
+authGuard().then(ok=>{ if(ok) loadWorkflows(); });
 </script>
 </body>
 </html>

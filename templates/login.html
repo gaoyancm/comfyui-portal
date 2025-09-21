@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>登录 - ComfyUI Portal</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial;margin:0;background:#f6f7f9}
+    .wrap{max-width:360px;margin:10vh auto;background:#fff;border:1px solid #eee;border-radius:10px;padding:24px}
+    label{display:block;margin:8px 0 4px}
+    input{width:100%;padding:10px;border:1px solid #ddd;border-radius:8px}
+    button{width:100%;padding:10px;margin-top:12px;border:none;background:#2f6bed;color:#fff;border-radius:8px;cursor:pointer}
+    .err{color:#c00;margin-top:10px;min-height:20px}
+    .muted{color:#666;font-size:12px;margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2 style="margin:0 0 8px">登录</h2>
+    <div class="muted">使用 Excel 用户表中的账号密码</div>
+    <form id="f">
+      <label>用户名</label>
+      <input name="username" autocomplete="username" />
+      <label>密码</label>
+      <input type="password" name="password" autocomplete="current-password" />
+      <button type="submit">登录</button>
+      <div id="err" class="err"></div>
+    </form>
+  </div>
+
+<script>
+const $=s=>document.querySelector(s);
+document.getElementById('f').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const body = new URLSearchParams();
+  for (const [k,v] of fd.entries()) body.append(k,v);
+  try{
+    const res = await fetch('/login', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
+    const j = await res.json();
+    if(j.ok){ location.href = '/'; }
+    else { $('#err').textContent = j.msg || '登录失败'; }
+  }catch(err){ $('#err').textContent = err+''; }
+});
+</script>
+</body>
+</html>
