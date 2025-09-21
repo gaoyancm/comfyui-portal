@@ -124,7 +124,7 @@ def status():
     u = session.get("user")
     if not u:
         return jsonify({"ok": False}), 401
-    return jsonify({"ok": True, "user": u})
+    return jsonify({"ok": True, "user": u, "role": session.get("role", "user")})
 
 
 @auth_bp.get("/logout")

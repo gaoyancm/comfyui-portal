@@ -14,6 +14,12 @@ def login_page():
     return render_template("login.html")
 
 
+@pages_bp.get("/logout_page")
+def logout_page():
+    session.clear()
+    return render_template("logout.html")
+
+
 @pages_bp.get("/history")
 def history_page():
     if "user" not in session:

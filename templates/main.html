@@ -72,7 +72,8 @@ async function authGuard(){
   if(r.status === 401){ location.href = '/login'; return false; }
   const j = await r.json();
   const bar = document.getElementById('userbar');
-  bar.innerHTML = `已登录：${(j.user||'')} <a href="/logout" style="margin-left:8px">退出</a>`;
+  const adminLink = j.role==='admin' ? ` | <a href="/admin/settings">后台</a>` : '';
+  bar.innerHTML = `已登录：${(j.user||'')}${adminLink} <a href="/logout_page" style="margin-left:8px">退出</a>`;
   return true;
 }
 
