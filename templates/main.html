@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ComfyUI Portal</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial;margin:20px}
+    .row{display:flex;gap:16px;flex-wrap:wrap}
+    .card{border:1px solid #ddd;border-radius:8px;padding:12px;flex:1;min-width:320px}
+    input,textarea,select{width:100%;padding:8px;margin:6px 0}
+    button{padding:8px 12px}
+    .muted{color:#666}
+    pre{background:#f7f7f7;padding:8px;border-radius:6px;white-space:pre-wrap}
+  </style>
+  <script>const $=s=>document.querySelector(s)</script>
+</head>
+<body>
+  <h2>ComfyUI 工作流面板</h2>
+  <div class="row">
+    <div class="card">
+      <h3>选择工作流并填写表单</h3>
+      <div>
+        <label>工作流</label>
+        <select id="wfSelect"></select>
+      </div>
+      <form id="jobForm">
+        <input type="hidden" name="workflow" id="wfInput" value="default.json" />
+        <input type="hidden" name="form_mode" value="1" />
+        <div id="formFields"></div>
+        <div style="margin-top:8px">
+          <button type="submit">提交任务</button>
+        </div>
+      </form>
+      <div id="createResp" class="muted"></div>
+    </div>
+    <div class="card">
+      <h3>任务状态</h3>
+      <input id="jobId" placeholder="job_id" />
+      <button id="btnPoll">开始轮询</button>
+      <div id="status"></div>
+      <div id="images"></div>
+    </div>
+  </div>
+
+<script>
+function renderField(container, f){
+  const wrap = document.createElement('div');
+  wrap.className = 'field';
+  const label = document.createElement('label');
+  label.textContent = f.label || f.name;
+  let input;
+  switch(f.type){
+    case 'textarea': input = document.createElement('textarea'); input.rows = f.rows||4; break;
+    case 'number':
+    case 'integer': input = document.createElement('input'); input.type='number'; if(f.min!==undefined) input.min=f.min; if(f.max!==undefined) input.max=f.max; break;
+    case 'select':
+      input = document.createElement('select'); (f.options||[]).forEach(opt=>{ const o=document.createElement('option'); o.value=opt.value??opt; o.textContent=opt.label??opt; input.appendChild(o);}); break;
+    case 'file': input = document.createElement('input'); input.type='file'; input.name = f.name; break;
+    default: input = document.createElement('input'); input.type='text';
+  }
+  input.name = f.name;
+  if(f.default!==undefined && f.type!=='file') input.value = f.default;
+  wrap.appendChild(label); wrap.appendChild(input);
+  container.appendChild(wrap);
+}
+
+async function loadWorkflows(){
+  const sel = document.getElementById('wfSelect');
+  const resp = await fetch('/api/workflows'); const j = await resp.json();
+  sel.innerHTML = '';
+  (j.items||[]).forEach(it=>{ const o=document.createElement('option'); o.value=it.workflow; o.textContent=it.workflow+(it.has_form?'':' (无表单)'); sel.appendChild(o)});
+  if(j.items&&j.items.length){ sel.value = j.items[0].workflow; document.getElementById('wfInput').value = sel.value; await loadForm(sel.value); }
+  sel.onchange = async ()=>{ document.getElementById('wfInput').value = sel.value; await loadForm(sel.value); };
+}
+
+async function loadForm(wfname){
+  const area = document.getElementById('formFields'); area.innerHTML='';
+  const r = await fetch(`/api/workflows/${encodeURIComponent(wfname)}/form`); const j = await r.json();
+  const fields = (j.form && j.form.fields) || [];
+  if(!fields.length){ area.innerHTML = '<div class="muted">该工作流暂未提供表单定义，可直接提交。</div>'; }
+  fields.forEach(f=>renderField(area, f));
+}
+
+$('#jobForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  try{
+    const res = await fetch('/api/jobs', {method:'POST', body:fd});
+    const j = await res.json();
+    document.getElementById('createResp').textContent = JSON.stringify(j);
+    if(j.ok){ document.getElementById('jobId').value = j.job_id; }
+  }catch(err){ document.getElementById('createResp').textContent = err+''; }
+});
+
+document.getElementById('btnPoll').addEventListener('click', async ()=>{
+  const id = document.getElementById('jobId').value.trim();
+  if(!id) return;
+  async function step(){
+    const r = await fetch(`/api/jobs/${id}/status`);
+    const j = await r.json();
+    document.getElementById('status').innerHTML = `<pre>${JSON.stringify(j,null,2)}</pre>`;
+    if(j.ok && j.outputs){
+      const imgs = (j.outputs||[]).map(o=>`<img style=\"max-width:180px;margin:4px\" src=\"/api/comfy/view?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}\" />`).join('');
+      document.getElementById('images').innerHTML = imgs;
+    } else if(j.ok && (j.status==='queued' || j.status==='running' || j.status==='submitting')){
+      setTimeout(step, 1200);
+    }
+  }
+  step();
+});
+
+loadWorkflows();
+</script>
+</body>
+</html>

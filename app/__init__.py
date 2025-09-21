@@ -14,7 +14,7 @@ def create_app():
     )
 
     from .auth import auth_bp
-    from .jobs import jobs_bp
+    from .jobs2 import jobs_bp
     from .pages import pages_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(jobs_bp, url_prefix="/api")

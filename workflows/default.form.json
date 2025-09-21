@@ -1,0 +1,13 @@
+{
+  "name": "default",
+  "fields": [
+    {"name": "positive", "label": "正面提示词", "type": "textarea", "default": "a scenic landscape"},
+    {"name": "negative", "label": "负面提示词", "type": "textarea", "default": ""},
+    {"name": "seed", "label": "随机种子", "type": "integer", "default": 12345}
+  ],
+  "mapping": [
+    {"path": "nodes.5.inputs.text", "value": "$positive"},
+    {"path": "nodes.6.inputs.text", "value": "$negative"},
+    {"path": "nodes.4.inputs.seed", "value": "$seed"}
+  ]
+}
