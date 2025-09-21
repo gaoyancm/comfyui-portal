@@ -4,23 +4,17 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ComfyUI Portal</title>
-  <style>
-    body{font-family:system-ui,Segoe UI,Arial;margin:20px}
-    .row{display:flex;gap:16px;flex-wrap:wrap}
-    .card{border:1px solid #ddd;border-radius:8px;padding:12px;flex:1;min-width:320px}
-    input,textarea,select{width:100%;padding:8px;margin:6px 0}
-    button{padding:8px 12px}
-    .muted{color:#666}
-    pre{background:#f7f7f7;padding:8px;border-radius:6px;white-space:pre-wrap}
-  </style>
+  <link rel="stylesheet" href="/static/app.css" />
   <script>const $=s=>document.querySelector(s)</script>
 </head>
 <body>
-  <h2>ComfyUI 工作流面板</h2>
-  <div id="userbar" class="muted" style="margin-bottom:10px"></div>
-  <div style="margin-bottom:10px"><a href="/history">查看任务历史</a></div>
+  <div class="wrap">
+  <div class="nav">
+    <div class="brand">ComfyUI Portal · <b>工业风·AI创业</b></div>
+    <div id="userbar" class="pill"></div>
+  </div>
   <div class="row">
-    <div class="card">
+    <div class="card wide">
       <h3>选择工作流并填写表单</h3>
       <div>
         <label>工作流</label>
@@ -31,18 +25,19 @@
         <input type="hidden" name="form_mode" value="1" />
         <div id="formFields"></div>
         <div style="margin-top:8px">
-          <button type="submit">提交任务</button>
+          <button type="submit" class="btn">提交任务</button>
         </div>
       </form>
       <div id="createResp" class="muted"></div>
     </div>
-    <div class="card">
+    <div class="card wide">
       <h3>任务状态</h3>
       <input id="jobId" placeholder="job_id" />
-      <button id="btnPoll">开始轮询</button>
+      <div style="margin:6px 0 10px"><button id="btnPoll" class="btn">开始轮询</button> <a class="btn ghost" href="/history" style="margin-left:8px">历史</a></div>
       <div id="status"></div>
       <div id="images"></div>
     </div>
+  </div>
   </div>
 
 <script>
@@ -72,8 +67,8 @@ async function authGuard(){
   if(r.status === 401){ location.href = '/login'; return false; }
   const j = await r.json();
   const bar = document.getElementById('userbar');
-  const adminLink = j.role==='admin' ? ` | <a href="/admin/settings">后台</a>` : '';
-  bar.innerHTML = `已登录：${(j.user||'')}${adminLink} <a href="/logout_page" style="margin-left:8px">退出</a>`;
+  const adminLink = j.role==='admin' ? ` | <a class=\"pill\" href=\"/admin/settings\">后台</a>` : '';
+  bar.innerHTML = `已登录：${(j.user||'')}${adminLink} <a class=\"pill\" href=\"/logout_page\" style=\"margin-left:8px\">退出</a>`;
   return true;
 }
 

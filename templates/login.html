@@ -4,27 +4,22 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>登录 - ComfyUI Portal</title>
-  <style>
-    body{font-family:system-ui,Segoe UI,Arial;margin:0;background:#f6f7f9}
-    .wrap{max-width:360px;margin:10vh auto;background:#fff;border:1px solid #eee;border-radius:10px;padding:24px}
-    label{display:block;margin:8px 0 4px}
-    input{width:100%;padding:10px;border:1px solid #ddd;border-radius:8px}
-    button{width:100%;padding:10px;margin-top:12px;border:none;background:#2f6bed;color:#fff;border-radius:8px;cursor:pointer}
-    .err{color:#c00;margin-top:10px;min-height:20px}
-    .muted{color:#666;font-size:12px;margin-top:8px}
-  </style>
+  <link rel="stylesheet" href="/static/app.css" />
 </head>
-<body>
-  <div class="wrap">
-    <h2 style="margin:0 0 8px">登录</h2>
-    <div class="muted">使用后台维护的账号登录</div>
+<body class="auth-shell">
+  <div class="auth-card">
+    <div class="auth-title">登录</div>
+    <div class="hint">工业风 · AI创业门户 · 请输入账号密码</div>
     <form id="f">
       <label>用户名</label>
-      <input name="username" autocomplete="username" />
+      <input name="username" autocomplete="username" placeholder="your name" />
       <label>密码</label>
-      <input type="password" name="password" autocomplete="current-password" />
-      <button type="submit">登录</button>
-      <div id="err" class="err"></div>
+      <input type="password" name="password" autocomplete="current-password" placeholder="password" />
+      <div style="margin-top:12px;display:flex;gap:10px">
+        <button type="submit" class="btn" style="flex:1">登录</button>
+        <a class="btn ghost" href="/" style="flex:1;text-align:center">返回首页</a>
+      </div>
+      <div id="err" class="muted" style="margin-top:10px;min-height:20px"></div>
     </form>
   </div>
 
