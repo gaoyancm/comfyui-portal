@@ -5,7 +5,14 @@ import os
 load_dotenv()
 
 def create_app():
-    app = Flask(__name__, static_folder="static", template_folder="templates")
+    # Ensure Flask searches project-level templates/static
+    pkg_dir = os.path.dirname(__file__)
+    root_dir = os.path.dirname(pkg_dir)
+    app = Flask(
+        __name__,
+        static_folder=os.path.join(root_dir, "static"),
+        template_folder=os.path.join(root_dir, "templates"),
+    )
     app.config.update(
         SECRET_KEY=os.environ.get("SECRET_KEY", "dev-secret"),
         COMFY_URL=os.environ.get("COMFY_URL", "http://127.0.0.1:8188"),
