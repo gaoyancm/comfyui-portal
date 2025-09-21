@@ -1,0 +1,8 @@
+username,password_hash,expire_at,role,active
+demo,9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08,2099-12-31,user,true
+
+# 说明：
+# - password_hash 是明文密码的 SHA256 十六进制（上面的样例是 "test" 的 SHA256）。
+# - expire_at 可为空（或留 2099-12-31 表示长期有效）。
+# - role 可填 user/admin（admin 预留给后台管理界面使用）。
+# - active 为 true/false，false 表示账号停用。
