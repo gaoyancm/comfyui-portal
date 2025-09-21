@@ -178,7 +178,8 @@ def _list_workflows_impl():
         return []
     items = []
     for name in os.listdir(root):
-        if name.lower().endswith(".json"):
+        lname = name.lower()
+        if lname.endswith(".json") and not lname.endswith(".form.json"):
             wf = name
             form = f"{os.path.splitext(name)[0]}.form.json"
             items.append({"workflow": wf, "has_form": os.path.isfile(os.path.join(root, form)), "form": form})
