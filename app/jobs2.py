@@ -124,7 +124,11 @@ def _run_job(job_id):
             upload_map[meta.get("field")] = comfy_name
         prompt_json = _apply_form_mapping(prompt_json, mapping, form_values, upload_map)
     else:
-        prompt_json = _apply_overrides(prompt_json, ov)
+        # 若没有 mapping，但 overrides 仅包含内部键（_form_values/_uploads），则不改动工作流
+        if set(ov.keys()) <= {"_form_values", "_uploads"}:
+            pass
+        else:
+            prompt_json = _apply_overrides(prompt_json, ov)
 
     client_id = str(uuid.uuid4())
     j.update(status="submitting", progress=5)
@@ -286,4 +290,3 @@ def proxy_view():
     if r.status_code != 200:
         return jsonify({"ok": False, "msg": r.text}), 502
     return Response(r.iter_content(8192), content_type=r.headers.get("Content-Type","image/png"))
-
