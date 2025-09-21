@@ -5,8 +5,13 @@
     {"name": "negative", "label": "负面提示词", "type": "textarea", "default": ""},
     {"name": "seed", "label": "随机种子", "type": "integer", "default": 0},
     {"name": "steps", "label": "步数", "type": "integer", "default": 20},
-    {"name": "cfg", "label": "CFG", "type": "number", "default": 4.0},
-    {"name": "image", "label": "输入图片（可选）", "type": "file"}
+    {"name": "cfg", "label": "CFG", "type": "number", "default": 7.5}
   ],
-  "mapping": []
+  "mapping": [
+    {"path": "5.inputs.seed", "value": "$seed"},
+    {"path": "5.inputs.steps", "value": "$steps"},
+    {"path": "5.inputs.cfg", "value": "$cfg"},
+    {"path": "3.inputs.text", "value": "$positive"},
+    {"path": "4.inputs.text", "value": "$negative"}
+  ]
 }

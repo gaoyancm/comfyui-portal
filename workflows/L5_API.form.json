@@ -1,12 +1,21 @@
 {
   "name": "L5_API",
   "fields": [
-    {"name": "positive", "label": "正面提示词", "type": "textarea", "default": ""},
+    {"name": "positive1", "label": "正面提示词1", "type": "textarea", "default": ""},
+    {"name": "positive2", "label": "正面提示词2", "type": "textarea", "default": ""},
     {"name": "negative", "label": "负面提示词", "type": "textarea", "default": ""},
-    {"name": "seed", "label": "随机种子", "type": "integer", "default": 0},
-    {"name": "steps", "label": "步数", "type": "integer", "default": 20},
-    {"name": "cfg", "label": "CFG", "type": "number", "default": 4.0},
-    {"name": "image", "label": "输入图片（可选）", "type": "file"}
+    {"name": "steps", "label": "步数", "type": "integer", "default": 25},
+    {"name": "guidance", "label": "Guidance", "type": "number", "default": 3.5},
+    {"name": "width", "label": "宽度", "type": "integer", "default": 1024},
+    {"name": "height", "label": "高度", "type": "integer", "default": 1024}
   ],
-  "mapping": []
+  "mapping": [
+    {"path": "6.inputs.text", "value": "$positive1"},
+    {"path": "50.inputs.text", "value": "$positive2"},
+    {"path": "59.inputs.text", "value": "$negative"},
+    {"path": "17.inputs.steps", "value": "$steps"},
+    {"path": "26.inputs.guidance", "value": "$guidance"},
+    {"path": "27.inputs.width", "value": "$width"},
+    {"path": "27.inputs.height", "value": "$height"}
+  ]
 }

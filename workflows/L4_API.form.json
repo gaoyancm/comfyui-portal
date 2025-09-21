@@ -8,5 +8,11 @@
     {"name": "cfg", "label": "CFG", "type": "number", "default": 4.0},
     {"name": "image", "label": "输入图片（可选）", "type": "file"}
   ],
-  "mapping": []
+  "mapping": [
+    {"path": "3.inputs.seed", "value": "$seed"},
+    {"path": "3.inputs.steps", "value": "$steps"},
+    {"path": "3.inputs.cfg", "value": "$cfg"},
+    {"path": "6.inputs.text", "value": "$positive"},
+    {"path": "7.inputs.text", "value": "$negative"}
+  ]
 }
