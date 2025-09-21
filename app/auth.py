@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, session
+ï»¿from flask import Blueprint, request, jsonify, session
 import pandas as pd
 import hashlib
 import os
@@ -46,18 +46,18 @@ def login():
     data = request.get_json(silent=True) or request.form.to_dict() or {}
     u = (data.get("username") or "").strip(); p = data.get("password") or ""
     if not u or not p:
-        return jsonify({"ok": False, "msg": "ÓÃ»§Ãû»òÃÜÂëÎª¿Õ"}), 400
+        return jsonify({"ok": False, "msg": "ç”¨æˆ·åæˆ–å¯†ç ä¸ºç©º"}), 400
     users = load_users(); info = users.get(u)
     if not info:
-        return jsonify({"ok": False, "msg": "ÓÃ»§²»´æÔÚ"}), 401
+        return jsonify({"ok": False, "msg": "ç”¨æˆ·ä¸å­˜åœ¨"}), 401
     if datetime.utcnow() > info["expire_at"]:
-        return jsonify({"ok": False, "msg": "ÃÜÂëÒÑ¹ıÆÚ"}), 401
+        return jsonify({"ok": False, "msg": "å¯†ç å·²è¿‡æœŸ"}), 401
     if hashlib.sha256(p.encode()).hexdigest() != info["password_hash"]:
-        return jsonify({"ok": False, "msg": "ÃÜÂë´íÎó"}), 401
+        return jsonify({"ok": False, "msg": "å¯†ç é”™è¯¯"}), 401
     import secrets, time
     now = time.time(); rec = ACTIVE_SESSIONS.get(u)
     if rec and now - rec.get("last_seen",0) <= INACTIVITY_SECONDS:
-        return jsonify({"ok": False, "msg": "¸ÃÕËºÅÒÑÔÚÆäËûÎ»ÖÃµÇÂ¼"}), 409
+        return jsonify({"ok": False, "msg": "è¯¥è´¦å·å·²åœ¨å…¶ä»–ä½ç½®ç™»å½•"}), 409
     sid = secrets.token_urlsafe(24)
     session.permanent = True
     session["user"] = u; session["sid"] = sid
@@ -79,3 +79,4 @@ def logout():
         ACTIVE_SESSIONS.pop(u, None)
     session.clear()
     return jsonify({"ok": True})
+
