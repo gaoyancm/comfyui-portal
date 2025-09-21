@@ -36,25 +36,30 @@ threading.Thread(target=_worker, daemon=True).start()
 
 
 def _deep_set(obj, path, value):
-    # path like nodes.5.inputs.text
+    # path like 3.inputs.seed or nodes.5.inputs.text
     parts = [p for p in str(path).split('.') if p]
     cur = obj
-    for i, p in enumerate(parts):
+    for i, token in enumerate(parts):
         is_last = i == len(parts) - 1
+        # numeric tokens are only treated as list indices when current container is a list
         try:
-            key = int(p)
+            idx = int(token)
         except ValueError:
-            key = p
+            idx = None
+        use_index = isinstance(cur, list) and idx is not None
+        key = idx if use_index else token  # dict keys stay as strings
+
         if is_last:
-            if isinstance(cur, list) and isinstance(key, int):
+            if isinstance(cur, list) and use_index:
                 while len(cur) <= key:
                     cur.append(None)
                 cur[key] = value
-            elif isinstance(cur, dict):
+            else:
                 cur[key] = value
             return
-        # descend
-        if isinstance(cur, list) and isinstance(key, int):
+
+        # descend into next level
+        if isinstance(cur, list) and use_index:
             while len(cur) <= key:
                 cur.append({})
             if cur[key] is None:
