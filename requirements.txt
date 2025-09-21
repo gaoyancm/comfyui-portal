@@ -1,1 +1,6 @@
-flask\npython-dotenv\nwerkzeug\nrequests\npandas\nopenpyxl\n
+flask
+python-dotenv
+werkzeug
+requests
+pandas
+openpyxl
