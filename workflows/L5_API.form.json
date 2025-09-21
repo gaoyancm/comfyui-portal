@@ -4,10 +4,20 @@
     {"name": "positive1", "label": "正面提示词1", "type": "textarea", "default": ""},
     {"name": "positive2", "label": "正面提示词2", "type": "textarea", "default": ""},
     {"name": "negative", "label": "负面提示词", "type": "textarea", "default": ""},
-    {"name": "steps", "label": "步数", "type": "integer", "default": 25},
+    {"name": "steps", "label": "步数", "type": "integer", "default": 25, "min": 1},
     {"name": "guidance", "label": "Guidance", "type": "number", "default": 3.5},
+    {"name": "sampler_name", "label": "采样器", "type": "select", "options": ["euler", "euler_a", "dpmpp_2m", "dpmpp_2m_sde", "ddim"], "default": "euler"},
+    {"name": "scheduler", "label": "调度器", "type": "select", "options": ["normal", "karras", "ddim_uniform"], "default": "ddim_uniform"},
+    {"name": "denoise", "label": "降噪强度", "type": "number", "default": 1.0, "min": 0, "max": 1, "step": 0.01},
     {"name": "width", "label": "宽度", "type": "integer", "default": 1024},
-    {"name": "height", "label": "高度", "type": "integer", "default": 1024}
+    {"name": "height", "label": "高度", "type": "integer", "default": 1024},
+    {"name": "vae_name", "label": "VAE", "type": "text", "default": "ae.safetensors"},
+    {"name": "unet_name", "label": "UNet", "type": "text", "default": "flux1-dev-fp8.safetensors"},
+    {"name": "lora_name1", "label": "LoRA 1", "type": "text", "default": "moder-office-lady-il-01.safetensors"},
+    {"name": "strength1", "label": "LoRA 1 强度", "type": "number", "default": 0.7},
+    {"name": "lora_name2", "label": "LoRA 2", "type": "text", "default": "好看的亚洲人脸F.1_girl_flux_girl v1.safetensors"},
+    {"name": "strength2", "label": "LoRA 2 强度", "type": "number", "default": 0.8},
+    {"name": "filename_prefix", "label": "保存前缀", "type": "text", "default": "ComfyUI"}
   ],
   "mapping": [
     {"path": "6.inputs.text", "value": "$positive1"},
@@ -15,7 +25,17 @@
     {"path": "59.inputs.text", "value": "$negative"},
     {"path": "17.inputs.steps", "value": "$steps"},
     {"path": "26.inputs.guidance", "value": "$guidance"},
+    {"path": "16.inputs.sampler_name", "value": "$sampler_name"},
+    {"path": "17.inputs.scheduler", "value": "$scheduler"},
+    {"path": "17.inputs.denoise", "value": "$denoise"},
     {"path": "27.inputs.width", "value": "$width"},
-    {"path": "27.inputs.height", "value": "$height"}
+    {"path": "27.inputs.height", "value": "$height"},
+    {"path": "10.inputs.vae_name", "value": "$vae_name"},
+    {"path": "47.inputs.unet_name", "value": "$unet_name"},
+    {"path": "64.inputs.lora_name", "value": "$lora_name1"},
+    {"path": "64.inputs.strength_model", "value": "$strength1"},
+    {"path": "49.inputs.lora_name", "value": "$lora_name2"},
+    {"path": "49.inputs.strength_model", "value": "$strength2"},
+    {"path": "9.inputs.filename_prefix", "value": "$filename_prefix"}
   ]
 }
