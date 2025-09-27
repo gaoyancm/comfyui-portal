@@ -1,5 +1,5 @@
 from flask import Blueprint, current_app, request, jsonify, send_file
-import os, uuid, threading, queue, time, json, requests
+import os, uuid, threading, queue, time, json, requests, re
 from functools import wraps
 import io, zipfile
 from datetime import datetime
@@ -10,6 +10,7 @@ jobs_bp = Blueprint("jobs", __name__)
 _task_q = queue.Queue()
 _jobs = {}  # job_id -> {status, progress, prompt_id, outputs:[], error, wf_path, mapping}
 _flask_app = None  # set via attach_app(app)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
 
 
 def login_required(fn):
@@ -66,6 +67,93 @@ def _resolve_server_for_workflow(wf_name, explicit=None, form_default=None):
     return _resolve_server_default()
 
 
+def _workflow_sort_key(name):
+    base = os.path.splitext(name)[0]
+    parts = re.findall(r'\d+|[^\d]+', base)
+    key = []
+    for part in parts:
+        if part.isdigit():
+            key.append(int(part))
+        else:
+            key.append(part.lower())
+    return key
+
+
+def _prepare_file_field(field):
+    spec = field.get('file') or {}
+    dirs = spec.get('dirs') or ['uploads']
+    cleaned_dirs = [d for d in dirs if d]
+    if not cleaned_dirs:
+        cleaned_dirs = ['uploads']
+    spec['dirs'] = cleaned_dirs
+    extensions = [ext.lower() for ext in spec.get('extensions', [])]
+    existing = []
+    for idx, rel_dir in enumerate(cleaned_dirs):
+        abs_dir = os.path.normpath(os.path.join(PROJECT_ROOT, rel_dir))
+        if not os.path.isdir(abs_dir):
+            continue
+        try:
+            entries = sorted(os.listdir(abs_dir))
+        except Exception:
+            continue
+        for entry in entries:
+            if entry.startswith('.') and not spec.get('include_hidden'):
+                continue
+            abs_file = os.path.join(abs_dir, entry)
+            if not os.path.isfile(abs_file):
+                continue
+            if extensions and not any(entry.lower().endswith(ext) for ext in extensions):
+                continue
+            existing.append({'label': entry, 'value': f'existing://{idx}/{entry}'})
+    if existing:
+        field['file_existing'] = existing
+    if spec.get('accept') and 'accept' not in field:
+        field['accept'] = spec['accept']
+    if 'allow_upload' not in field:
+        field['allow_upload'] = spec.get('allow_upload', True)
+    field['file'] = spec
+
+
+def _guess_file_kind(filename):
+    lower = (filename or '').lower()
+    if lower.endswith(('.wav', '.mp3', '.flac', '.aac', '.ogg')):
+        return 'audio'
+    if lower.endswith(('.mp4', '.mov', '.mkv', '.avi', '.webm')):
+        return 'video'
+    return 'image'
+
+
+def _resolve_existing_file(field, value):
+    if not isinstance(value, str) or not value.startswith('existing://'):
+        return None
+    spec = field.get('file') or {}
+    dirs = spec.get('dirs') or []
+    payload = value[len('existing://'):]
+    if '/' not in payload:
+        return None
+    idx_str, filename = payload.split('/', 1)
+    try:
+        idx = int(idx_str)
+    except ValueError:
+        return None
+    if idx < 0 or idx >= len(dirs):
+        return None
+    rel_dir = dirs[idx]
+    abs_dir = os.path.normpath(os.path.join(PROJECT_ROOT, rel_dir))
+    if not os.path.isdir(abs_dir):
+        return None
+    candidate = os.path.normpath(os.path.join(abs_dir, filename))
+    try:
+        base = os.path.commonpath([abs_dir, candidate])
+    except ValueError:
+        return None
+    if base != abs_dir:
+        return None
+    if not os.path.isfile(candidate):
+        return None
+    return candidate
+
+
 def _deep_set(obj, path, value):
     # path like 3.inputs.seed or nodes.5.inputs.text
     parts = [p for p in str(path).split('.') if p]
@@ -116,6 +204,8 @@ def _apply_form_mapping(prompt_json, mapping, form_values, upload_map):
             if ref.startswith("file:"):
                 fld = ref.split(":", 1)[1]
                 v = upload_map.get(fld)
+                if v is None:
+                    v = form_values.get(fld)
             else:
                 v = form_values.get(ref)
         _deep_set(prompt_json, path, v)
@@ -135,16 +225,24 @@ def _comfy_url():
     return current_app.config["COMFY_URL"].rstrip('/')
 
 
-def _upload_to_comfy(file_path):
-    # Best-effort upload to ComfyUI
-    url = f"{_comfy_url()}/upload/image"
+def _upload_to_comfy(file_path, kind='image'):
+    endpoint = 'image'
+    field = 'image'
+    if kind == 'audio':
+        endpoint = 'audio'
+        field = 'audio'
+    elif kind == 'video':
+        endpoint = 'video'
+        field = 'video'
+    url = f"{_comfy_url()}/upload/{endpoint}"
     try:
         with open(file_path, 'rb') as fp:
-            r = requests.post(url, files={'image': (os.path.basename(file_path), fp)}, timeout=60)
-        if r.status_code == 200:
-            if r.headers.get('content-type','').startswith('application/json'):
-                data = r.json()
-                return data.get('name') or os.path.basename(file_path)
+            r = requests.post(url, files={field: (os.path.basename(file_path), fp)}, timeout=120)
+        if r.status_code == 200 and r.headers.get('content-type', '').startswith('application/json'):
+            data = r.json()
+            name = data.get('name') or data.get('filename')
+            if name:
+                return name
     except Exception:
         pass
     return os.path.basename(file_path)
@@ -164,8 +262,9 @@ def _run_job(job_id):
         # if uploads exist, convert to comfy names
         upload_map = {}
         for meta in ov.get("_uploads", []):
-            # meta: {field, name, path}
-            comfy_name = _upload_to_comfy(meta.get("path"))
+            # meta: {field, name, path, kind}
+            kind = meta.get('kind') or _guess_file_kind(meta.get('name'))
+            comfy_name = _upload_to_comfy(meta.get("path"), kind)
             upload_map[meta.get("field")] = comfy_name
         prompt_json = _apply_form_mapping(prompt_json, mapping, form_values, upload_map)
     else:
@@ -216,16 +315,17 @@ def _run_job(job_id):
 
 
 def _list_workflows_impl():
-    root = "workflows"
+    root = os.path.join(PROJECT_ROOT, "workflows")
     if not os.path.isdir(root):
         return []
     items = []
     for name in os.listdir(root):
         lname = name.lower()
-        if lname.endswith(".json") and not lname.endswith(".form.json") and lname != "default.json":
-            wf = name
-            form = f"{os.path.splitext(name)[0]}.form.json"
-            items.append({"workflow": wf, "has_form": os.path.isfile(os.path.join(root, form)), "form": form})
+        if lname.endswith(".json") and not lname.endswith(".form.json") and lname not in {"default.json", "servers.json"}:
+            form_name = f"{os.path.splitext(name)[0]}.form.json"
+            form_path = os.path.join(root, form_name)
+            items.append({"workflow": name, "has_form": os.path.isfile(form_path), "form": form_name})
+    items.sort(key=lambda it: _workflow_sort_key(it["workflow"]))
     return items
 
 
@@ -238,15 +338,19 @@ def list_workflows_api():
 @jobs_bp.get("/workflows/<wf>/form")
 @login_required
 def get_workflow_form(wf):
-    root = "workflows"
+    root = os.path.join(PROJECT_ROOT, "workflows")
     base = os.path.splitext(wf)[0]
     form_path = os.path.join(root, f"{base}.form.json")
     if os.path.isfile(form_path):
         try:
             with open(form_path, 'r', encoding='utf-8') as f:
-                return jsonify({"ok": True, "form": json.load(f)})
+                form_data = json.load(f)
+            for field in form_data.get('fields', []):
+                if field.get('type') == 'file':
+                    _prepare_file_field(field)
+            return jsonify({"ok": True, "form": form_data})
         except Exception as e:
-            return jsonify({"ok": False, "msg": f"读取表单失败: {e}"}), 400
+            return jsonify({"ok": False, "msg": f"??????: {e}"}), 400
     return jsonify({"ok": True, "form": {"name": base, "fields": [], "mapping": []}})
 
 
@@ -261,29 +365,28 @@ def create_job():
         try:
             overrides = json.loads(overrides_text)
         except Exception:
-            return jsonify({"ok": False, "msg": "overrides 需为 JSON"}), 400
-    wf_path = os.path.join("workflows", wf)
+            return jsonify({"ok": False, "msg": "overrides ?? JSON"}), 400
+    wf_path = os.path.join(PROJECT_ROOT, "workflows", wf)
     if not os.path.isfile(wf_path):
-        return jsonify({"ok": False, "msg": f"未找到工作流 {wf}"}), 404
+        return jsonify({"ok": False, "msg": f"?????? {wf}"}), 404
 
-    # file uploads
     upload_dir = current_app.config["UPLOAD_DIR"]
     os.makedirs(upload_dir, exist_ok=True)
     files_meta = []
-    for key in request.files:
-        f = request.files[key]
-        fname = f"{uuid.uuid4().hex}_{f.filename}"
+    for key, storage in request.files.items():
+        field_name = key[:-len('__upload')] if key.endswith('__upload') else key
+        fname = f"{uuid.uuid4().hex}_{storage.filename}"
         fpath = os.path.join(upload_dir, fname)
-        f.save(fpath)
-        files_meta.append({"field": key, "name": f.filename, "path": fpath})
+        storage.save(fpath)
+        files_meta.append({"field": field_name, "name": storage.filename, "path": fpath})
 
-    # optional per-request server (admin/internal use)
     explicit_server = request.form.get("server") or request.args.get("server")
     form_default_server = None
+    mapping = []
 
     if use_form:
         base = os.path.splitext(wf)[0]
-        form_path = os.path.join("workflows", f"{base}.form.json")
+        form_path = os.path.join(PROJECT_ROOT, "workflows", f"{base}.form.json")
         form_def = {"fields": [], "mapping": []}
         if os.path.isfile(form_path):
             try:
@@ -292,25 +395,54 @@ def create_job():
             except Exception:
                 pass
         form_default_server = form_def.get("server")
+        file_specs = {}
+        for fld in form_def.get("fields", []):
+            if fld.get('type') == 'file':
+                _prepare_file_field(fld)
+                rel_dirs = fld.get('file', {}).get('dirs', [])
+                abs_dirs = [os.path.normpath(os.path.join(PROJECT_ROOT, d)) for d in rel_dirs]
+                file_specs[fld.get('name')] = {"dirs": abs_dirs, "kind": fld.get('file', {}).get('kind', 'image')}
+
         form_values = {}
         for fld in form_def.get("fields", []):
             nm = fld.get("name")
-            if nm:
-                form_values[nm] = request.form.get(nm, fld.get("default"))
-                if fld.get("type") in ("number", "integer"):
-                    try:
-                        form_values[nm] = int(form_values[nm]) if fld.get("type")=="integer" else float(form_values[nm])
-                    except Exception:
-                        pass
+            if not nm:
+                continue
+            value = request.form.get(nm, fld.get("default"))
+            if fld.get("type") in ("number", "integer") and value not in (None, ""):
+                try:
+                    value = int(value) if fld.get("type")=="integer" else float(value)
+                except Exception:
+                    pass
+            form_values[nm] = value
+        # annotate file uploads with kind information
+        for meta in files_meta:
+            spec = file_specs.get(meta["field"])
+            if spec:
+                meta["kind"] = spec.get("kind", 'image')
+            else:
+                meta["kind"] = _guess_file_kind(meta.get('name', ''))
+        # handle existing file selections
+        for fld in form_def.get("fields", []):
+            if fld.get('type') != 'file':
+                continue
+            nm = fld.get('name')
+            if not nm:
+                continue
+            existing_path = _resolve_existing_file(fld, form_values.get(nm))
+            if existing_path:
+                spec = file_specs.get(nm) or {}
+                files_meta.append({"field": nm, "name": os.path.basename(existing_path), "path": existing_path, "kind": spec.get('kind', 'image'), "from_existing": True})
         overrides = {"_form_values": form_values, "_uploads": files_meta}
         mapping = form_def.get("mapping", [])
     else:
+        for meta in files_meta:
+            if 'kind' not in meta:
+                meta['kind'] = _guess_file_kind(meta.get('name', ''))
         if files_meta:
             overrides["_uploads"] = files_meta
-        mapping = []
 
     job_id = uuid.uuid4().hex
-    # attach minimal metadata for history
     from flask import session
     comfy_url = _resolve_server_for_workflow(wf, explicit_server, form_default_server)
     _jobs[job_id] = {
@@ -357,6 +489,24 @@ def proxy_view():
     return Response(r.iter_content(8192), content_type=r.headers.get("Content-Type","image/png"))
 
 
+@jobs_bp.get("/jobs/<job_id>/comfy/view")
+@login_required
+def job_proxy_view(job_id):
+    # Image preview that respects the server used by the specific job
+    from flask import Response
+    j = _jobs.get(job_id)
+    if not j:
+        return jsonify({"ok": False, "msg": "不存在的任务"}), 404
+    filename = request.args.get("filename"); subfolder = request.args.get("subfolder","" ); typ = request.args.get("type","output")
+    if not filename:
+        return jsonify({"ok": False, "msg": "缺少 filename"}), 400
+    comfy = j.get("comfy_url") or _comfy_url()
+    r = requests.get(f"{comfy}/view", params={"filename": filename, "subfolder": subfolder, "type": typ}, stream=True, timeout=60)
+    if r.status_code != 200:
+        return jsonify({"ok": False, "msg": r.text}), 502
+    return Response(r.iter_content(8192), content_type=r.headers.get("Content-Type","image/png"))
+
+
 @jobs_bp.get("/jobs/<job_id>/artifacts")
 @login_required
 def job_artifacts(job_id):
@@ -398,8 +548,9 @@ def download_single(job_id):
     ftype = request.args.get("type", "output")
     if not filename:
         return jsonify({"ok": False, "msg": "缺少 filename"}), 400
-    # proxy from ComfyUI and set attachment disposition
-    r = requests.get(f"{current_app.config['COMFY_URL']}/view", params={"filename": filename, "subfolder": subfolder, "type": ftype}, stream=True, timeout=120)
+    # proxy from the specific ComfyUI server used by this job
+    comfy = j.get("comfy_url") or _comfy_url()
+    r = requests.get(f"{comfy}/view", params={"filename": filename, "subfolder": subfolder, "type": ftype}, stream=True, timeout=120)
     if r.status_code != 200:
         return jsonify({"ok": False, "msg": r.text}), 502
     from flask import Response
@@ -418,11 +569,15 @@ def download_zip(job_id):
     artifacts = j.get("outputs", [])
     if not artifacts:
         return jsonify({"ok": False, "msg": "该任务没有可下载的产物"}), 400
+    comfy = j.get("comfy_url") or _comfy_url()
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
         for a in artifacts:
             params = {"filename": a.get("filename"), "subfolder": a.get("subfolder",""), "type": a.get("type","output")}
-            r = requests.get(f"{_comfy_url()}/view", params=params, timeout=120)
+            try:
+                r = requests.get(f"{comfy}/view", params=params, timeout=120)
+            except Exception:
+                continue
             if r.status_code != 200:
                 continue
             arcname = a.get("filename") or f"file_{len(zf.namelist())+1}"

@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  portal:
+    build:
+      context: ..
+      dockerfile: comfyui-portal/Dockerfile
+    container_name: comfyui-portal
+    restart: unless-stopped
+    environment:
+      - COMFY_URL=${COMFY_URL:-http://host.docker.internal:8188}
+      - SECRET_KEY=${SECRET_KEY:-change-me}
+      - UPLOAD_DIR=/data/uploads
+      - RESULTS_DIR=/data/results
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./workflows:/app/comfyui-portal/workflows
+      - ./uploads:/data/uploads
+      - ./results:/data/results
+      - ./users.csv:/app/comfyui-portal/users.csv
+

@@ -1,0 +1,268 @@
+{
+  "name": "L9_3_API",
+  "fields": [
+    {
+      "name": "main_prompt",
+      "label": "主要提示词",
+      "type": "textarea",
+      "default": "photograph scenery landscape, snow beautiful scenery mountain, glass bottle; purple galaxy bottle; moon"
+    },
+    {
+      "name": "negative",
+      "label": "负面提示词",
+      "type": "textarea",
+      "default": "text, watermark"
+    },
+    {
+      "name": "box1_text",
+      "label": "文本框1提示词",
+      "type": "textarea",
+      "default": "purple galaxy bottle"
+    },
+    {
+      "name": "box1_width",
+      "label": "文本框1宽度",
+      "type": "integer",
+      "default": 192
+    },
+    {
+      "name": "box1_height",
+      "label": "文本框1高度",
+      "type": "integer",
+      "default": 304
+    },
+    {
+      "name": "box1_x",
+      "label": "文本框1 X",
+      "type": "integer",
+      "default": 176
+    },
+    {
+      "name": "box1_y",
+      "label": "文本框1 Y",
+      "type": "integer",
+      "default": 272
+    },
+    {
+      "name": "box2_text",
+      "label": "文本框2提示词",
+      "type": "textarea",
+      "default": "moon"
+    },
+    {
+      "name": "box2_width",
+      "label": "文本框2宽度",
+      "type": "integer",
+      "default": 144
+    },
+    {
+      "name": "box2_height",
+      "label": "文本框2高度",
+      "type": "integer",
+      "default": 144
+    },
+    {
+      "name": "box2_x",
+      "label": "文本框2 X",
+      "type": "integer",
+      "default": 416
+    },
+    {
+      "name": "box2_y",
+      "label": "文本框2 Y",
+      "type": "integer",
+      "default": 16
+    },
+    {
+      "name": "seed",
+      "label": "随机种子",
+      "type": "integer",
+      "default": 656285581128481
+    },
+    {
+      "name": "steps",
+      "label": "步数",
+      "type": "integer",
+      "default": 20,
+      "min": 1
+    },
+    {
+      "name": "cfg",
+      "label": "CFG",
+      "type": "number",
+      "default": 8,
+      "min": 0
+    },
+    {
+      "name": "sampler_name",
+      "label": "采样器",
+      "type": "select",
+      "default": "uni_pc_bh2",
+      "options": [
+        "euler",
+        "euler_a",
+        "dpmpp_2m",
+        "dpmpp_2m_sde",
+        "ddim",
+        "uni_pc_bh2"
+      ]
+    },
+    {
+      "name": "scheduler",
+      "label": "调度器",
+      "type": "select",
+      "default": "normal",
+      "options": [
+        "normal",
+        "karras",
+        "ddim_uniform"
+      ]
+    },
+    {
+      "name": "denoise",
+      "label": "降噪强度",
+      "type": "number",
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "name": "width",
+      "label": "宽度",
+      "type": "integer",
+      "default": 768,
+      "min": 64
+    },
+    {
+      "name": "height",
+      "label": "高度",
+      "type": "integer",
+      "default": 768,
+      "min": 64
+    },
+    {
+      "name": "batch_size",
+      "label": "批量大小",
+      "type": "integer",
+      "default": 1,
+      "min": 1
+    },
+    {
+      "name": "ckpt_name",
+      "label": "模型(ckpt)",
+      "type": "text",
+      "default": "v1-5-pruned-emaonly-fp16.safetensors"
+    },
+    {
+      "name": "gligen_model",
+      "label": "GLIGEN 模型",
+      "type": "text",
+      "default": "gligen_sd14_textbox_pruned.safetensors"
+    },
+    {
+      "name": "filename_prefix",
+      "label": "保存前缀",
+      "type": "text",
+      "default": "gligen/testing"
+    }
+  ],
+  "mapping": [
+    {
+      "path": "24.inputs.text",
+      "value": "$main_prompt"
+    },
+    {
+      "path": "7.inputs.text",
+      "value": "$negative"
+    },
+    {
+      "path": "21.inputs.text",
+      "value": "$box1_text"
+    },
+    {
+      "path": "21.inputs.width",
+      "value": "$box1_width"
+    },
+    {
+      "path": "21.inputs.height",
+      "value": "$box1_height"
+    },
+    {
+      "path": "21.inputs.x",
+      "value": "$box1_x"
+    },
+    {
+      "path": "21.inputs.y",
+      "value": "$box1_y"
+    },
+    {
+      "path": "27.inputs.text",
+      "value": "$box2_text"
+    },
+    {
+      "path": "27.inputs.width",
+      "value": "$box2_width"
+    },
+    {
+      "path": "27.inputs.height",
+      "value": "$box2_height"
+    },
+    {
+      "path": "27.inputs.x",
+      "value": "$box2_x"
+    },
+    {
+      "path": "27.inputs.y",
+      "value": "$box2_y"
+    },
+    {
+      "path": "3.inputs.seed",
+      "value": "$seed"
+    },
+    {
+      "path": "3.inputs.steps",
+      "value": "$steps"
+    },
+    {
+      "path": "3.inputs.cfg",
+      "value": "$cfg"
+    },
+    {
+      "path": "3.inputs.sampler_name",
+      "value": "$sampler_name"
+    },
+    {
+      "path": "3.inputs.scheduler",
+      "value": "$scheduler"
+    },
+    {
+      "path": "3.inputs.denoise",
+      "value": "$denoise"
+    },
+    {
+      "path": "5.inputs.width",
+      "value": "$width"
+    },
+    {
+      "path": "5.inputs.height",
+      "value": "$height"
+    },
+    {
+      "path": "5.inputs.batch_size",
+      "value": "$batch_size"
+    },
+    {
+      "path": "4.inputs.ckpt_name",
+      "value": "$ckpt_name"
+    },
+    {
+      "path": "10.inputs.gligen_name",
+      "value": "$gligen_model"
+    },
+    {
+      "path": "9.inputs.filename_prefix",
+      "value": "$filename_prefix"
+    }
+  ]
+}

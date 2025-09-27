@@ -61,3 +61,4 @@ th{background:#0b1324; color:var(--muted); text-align:left}
 /* gallery images */
 .thumb{max-width:200px; border-radius:10px; border:1px solid var(--border)}
 
+\n.field-file select, .field-file input[type=file]{margin-bottom:6px;}\n.field-file .muted{font-size:12px;margin-top:4px;}\n.field-file .btn{margin-top:6px;}\n

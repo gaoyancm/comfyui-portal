@@ -18,6 +18,7 @@ def create_app():
         COMFY_URL=os.environ.get("COMFY_URL", "http://127.0.0.1:8188"),
         UPLOAD_DIR=os.environ.get("UPLOAD_DIR", "uploads"),
         RESULTS_DIR=os.environ.get("RESULTS_DIR", "results"),
+        JSON_AS_ASCII=False,
     )
 
     from .auth import auth_bp
@@ -32,6 +33,9 @@ def create_app():
 
     os.makedirs(app.config["UPLOAD_DIR"], exist_ok=True)
     os.makedirs(app.config["RESULTS_DIR"], exist_ok=True)
+    assets_root = os.path.join(root_dir, "assets")
+    os.makedirs(os.path.join(assets_root, "images"), exist_ok=True)
+    os.makedirs(os.path.join(assets_root, "audio"), exist_ok=True)
     # attach app to background worker after blueprints are ready
     try:
         jobs2.attach_app(app)

@@ -1,0 +1,259 @@
+{
+  "name": "L12_API",
+  "fields": [
+    {
+      "name": "reference_image",
+      "label": "参考图像A",
+      "type": "file",
+      "default": "mountains1.png",
+      "allow_upload": true,
+      "accept": "image/*",
+      "file": {
+        "kind": "image",
+        "dirs": [
+          "assets/images",
+          "uploads"
+        ],
+        "extensions": [
+          ".jpeg",
+          ".jpg",
+          ".png",
+          ".webp"
+        ]
+      },
+      "help": "可从 assets/images 或 uploads 选择/上传"
+    },
+    {
+      "name": "target_image",
+      "label": "参考图像B",
+      "type": "file",
+      "default": "sunset.png",
+      "allow_upload": true,
+      "accept": "image/*",
+      "file": {
+        "kind": "image",
+        "dirs": [
+          "assets/images",
+          "uploads"
+        ],
+        "extensions": [
+          ".jpeg",
+          ".jpg",
+          ".png",
+          ".webp"
+        ]
+      },
+      "help": "可从 assets/images 或 uploads 选择/上传"
+    },
+    {
+      "name": "translate_from",
+      "label": "提示源语言",
+      "type": "text",
+      "default": "chinese"
+    },
+    {
+      "name": "translate_to",
+      "label": "提示目标语言",
+      "type": "text",
+      "default": "english"
+    },
+    {
+      "name": "translate_text",
+      "label": "文本提示",
+      "type": "textarea",
+      "default": ""
+    },
+    {
+      "name": "strength",
+      "label": "图像条件权重",
+      "type": "number",
+      "default": 0.75,
+      "step": 0.05
+    },
+    {
+      "name": "cfg",
+      "label": "CFG",
+      "type": "number",
+      "default": 8,
+      "min": 0
+    },
+    {
+      "name": "steps",
+      "label": "步数",
+      "type": "integer",
+      "default": 26,
+      "min": 1
+    },
+    {
+      "name": "seed",
+      "label": "随机种子",
+      "type": "integer",
+      "default": 353269626580266
+    },
+    {
+      "name": "sampler_name",
+      "label": "采样器",
+      "type": "select",
+      "default": "dpmpp_3m_sde_gpu",
+      "options": [
+        "dpmpp_3m_sde_gpu",
+        "euler",
+        "euler_a",
+        "dpmpp_2m",
+        "ddim"
+      ]
+    },
+    {
+      "name": "scheduler",
+      "label": "调度器",
+      "type": "select",
+      "default": "exponential",
+      "options": [
+        "exponential",
+        "normal",
+        "karras",
+        "ddim_uniform"
+      ]
+    },
+    {
+      "name": "denoise",
+      "label": "降噪强度",
+      "type": "number",
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "name": "width",
+      "label": "宽度",
+      "type": "integer",
+      "default": 1024,
+      "min": 64
+    },
+    {
+      "name": "height",
+      "label": "高度",
+      "type": "integer",
+      "default": 1024,
+      "min": 64
+    },
+    {
+      "name": "batch_size",
+      "label": "批量大小",
+      "type": "integer",
+      "default": 1,
+      "min": 1
+    },
+    {
+      "name": "crop_mode",
+      "label": "裁剪模式",
+      "type": "text",
+      "default": "center"
+    },
+    {
+      "name": "clip_name",
+      "label": "CLIP 模型",
+      "type": "text",
+      "default": "clip_vision_g.safetensors"
+    },
+    {
+      "name": "ckpt_name",
+      "label": "模型(ckpt)",
+      "type": "text",
+      "default": "sd_xl_base_1.0.safetensors"
+    },
+    {
+      "name": "filename_prefix",
+      "label": "保存前缀",
+      "type": "text",
+      "default": "ComfyUI"
+    }
+  ],
+  "mapping": [
+    {
+      "path": "34.inputs.image",
+      "value": "$file:reference_image"
+    },
+    {
+      "path": "38.inputs.image",
+      "value": "$file:target_image"
+    },
+    {
+      "path": "44.inputs.from_translate",
+      "value": "$translate_from"
+    },
+    {
+      "path": "44.inputs.to_translate",
+      "value": "$translate_to"
+    },
+    {
+      "path": "44.inputs.text",
+      "value": "$translate_text"
+    },
+    {
+      "path": "19.inputs.strength",
+      "value": "$strength"
+    },
+    {
+      "path": "37.inputs.strength",
+      "value": "$strength"
+    },
+    {
+      "path": "3.inputs.cfg",
+      "value": "$cfg"
+    },
+    {
+      "path": "3.inputs.steps",
+      "value": "$steps"
+    },
+    {
+      "path": "3.inputs.seed",
+      "value": "$seed"
+    },
+    {
+      "path": "3.inputs.sampler_name",
+      "value": "$sampler_name"
+    },
+    {
+      "path": "3.inputs.scheduler",
+      "value": "$scheduler"
+    },
+    {
+      "path": "3.inputs.denoise",
+      "value": "$denoise"
+    },
+    {
+      "path": "5.inputs.width",
+      "value": "$width"
+    },
+    {
+      "path": "5.inputs.height",
+      "value": "$height"
+    },
+    {
+      "path": "5.inputs.batch_size",
+      "value": "$batch_size"
+    },
+    {
+      "path": "13.inputs.crop",
+      "value": "$crop_mode"
+    },
+    {
+      "path": "36.inputs.crop",
+      "value": "$crop_mode"
+    },
+    {
+      "path": "39.inputs.clip_name",
+      "value": "$clip_name"
+    },
+    {
+      "path": "40.inputs.ckpt_name",
+      "value": "$ckpt_name"
+    },
+    {
+      "path": "9.inputs.filename_prefix",
+      "value": "$filename_prefix"
+    }
+  ]
+}

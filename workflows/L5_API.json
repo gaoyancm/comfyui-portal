@@ -1,0 +1,266 @@
+{
+  "6": {
+    "inputs": {
+      "text": "The scene is set in a corner of a modern office space, with a light-colored wooden wall as the background, giving it a warm and professional feel. The large window on one side lets in natural light, adding a soft and bright atmosphere to the entire environment. She sits on a gray-blue cushioned chair, which is simple in design but textured, perfectly setting off her professional style. The overall space is simple and orderly, revealing an efficient and quiet office atmosphere. She sits naturally and faces the camera calmly and calmly, as if she is waiting for an important conversation or interview. The whole picture shows the confidence and professionalism of an urban woman in the workplace.",
+      "clip": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "13",
+        0
+      ],
+      "vae": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  },
+  "10": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "加载VAE"
+    }
+  },
+  "11": {
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp8_e4m3fn.safetensors",
+      "type": "flux",
+      "device": "default"
+    },
+    "class_type": "DualCLIPLoader",
+    "_meta": {
+      "title": "双CLIP加载器"
+    }
+  },
+  "13": {
+    "inputs": {
+      "noise": [
+        "25",
+        0
+      ],
+      "guider": [
+        "22",
+        0
+      ],
+      "sampler": [
+        "16",
+        0
+      ],
+      "sigmas": [
+        "17",
+        0
+      ],
+      "latent_image": [
+        "27",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "自定义采样器（高级）"
+    }
+  },
+  "16": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "K采样器选择"
+    }
+  },
+  "17": {
+    "inputs": {
+      "scheduler": "ddim_uniform",
+      "steps": 25,
+      "denoise": 1,
+      "model": [
+        "30",
+        0
+      ]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "基本调度器"
+    }
+  },
+  "22": {
+    "inputs": {
+      "model": [
+        "30",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "基本引导器"
+    }
+  },
+  "25": {
+    "inputs": {
+      "noise_seed": 9661488138192
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "随机噪波"
+    }
+  },
+  "26": {
+    "inputs": {
+      "guidance": 3.5,
+      "conditioning": [
+        "60",
+        0
+      ]
+    },
+    "class_type": "FluxGuidance",
+    "_meta": {
+      "title": "Flux引导"
+    }
+  },
+  "27": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {
+      "title": "空Latent图像（SD3）"
+    }
+  },
+  "30": {
+    "inputs": {
+      "max_shift": 1.15,
+      "base_shift": 0.5,
+      "width": 1024,
+      "height": 1024,
+      "model": [
+        "49",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingFlux",
+    "_meta": {
+      "title": "采样算法（Flux）"
+    }
+  },
+  "47": {
+    "inputs": {
+      "unet_name": "flux1-dev-fp8.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNet加载器"
+    }
+  },
+  "49": {
+    "inputs": {
+      "lora_name": "好看的亚洲人脸F.1_girl_flux_girl v1.safetensors",
+      "strength_model": 0.8000000000000002,
+      "model": [
+        "64",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  },
+  "50": {
+    "inputs": {
+      "text": "Her face is delicate and confident, with a pair of bright almond eyes looking straight ahead, her eyes are firm and steady. The corners of her eyes are slightly raised, revealing a hint of sharpness and shrewdness. Her eyebrows are naturally curved and well-groomed, highlighting her rational temperament. Her lips are painted with rich red lipstick, with clear contours, showing the decisiveness and charm of a professional woman. Her long black and smooth wavy hair looks shiny and full under the soft light indoors, which complements her overall image. She wears a dark gray professional suit with a neat cut and a miniskirt, revealing her slender white thighs, outlining her capable and elegant figure. She sits cross-legged, dignified and generous, revealing calmness and confidence.",
+      "clip": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "59": {
+    "inputs": {
+      "text": "low quality, blurry, cartoon, anime, unrealistic, bad hands, bad anatomy, lowres, jpeg artifacts, watermark, nsfw",
+      "clip": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  },
+  "60": {
+    "inputs": {
+      "conditioning1": [
+        "50",
+        0
+      ],
+      "conditioning2": [
+        "6",
+        0
+      ],
+      "conditioning3": [
+        "59",
+        0
+      ]
+    },
+    "class_type": "ImpactConcatConditionings",
+    "_meta": {
+      "title": "ImpactConcatConditionings"
+    }
+  },
+  "64": {
+    "inputs": {
+      "lora_name": "moder-office-lady-il-01.safetensors",
+      "strength_model": 0.7000000000000002,
+      "model": [
+        "47",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  }
+}

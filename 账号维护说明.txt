@@ -1,0 +1,63 @@
+后台维护界面（管理员专用）
+
+页面：/admin/settings（仅 admin 角色可访问）
+功能：列出工作流、为每个工作流填写服务器地址、保存、健康检查
+健康检查：GET /api/health?server=... 返回可达性与延迟
+接口：
+GET /api/admin/servers 读取映射
+POST /api/admin/servers 保存映射（写回 workflows/servers.json）
+文件：
+app/admin.py（Blueprint）
+templates/admin_settings.html
+
+提供示例与管理脚本：
+users.csv.example：CSV 模板
+tools/user_admin.py：命令行管理
+添加：python tools/user_admin.py add-user alice --password "123456" --expire 2026-12-31 --role user(默认可以不加）
+改密：python tools/user_admin.py set-password alice --password "newpass"
+改到期：python tools/user_admin.py set-expire alice --date 2026-06-30
+停用/启用：python tools/user_admin.py deactivate alice /activate
+列表：python tools/user_admin.py  list
+
+如何使用（运维）
+配置服务器映射
+方式1（推荐）：打开 /admin/settings（需 admin 登录） → 每个工作流填入 ngrok 地址 → 检查连接 → 保存
+方式2（启动前维护）：编辑文件 workflows/servers.json，示例：
+{
+"L4_API.json": "https://aa-bb.ngrok.app",
+"L5_API.json": "https://cc-dd.ngrok.app"
+}
+
+连接检查
+在后台页面点“检查”，或调用 /api/health?server=https://xxx.ngrok.app
+结果查看与下载
+任务完成后，页面上使用 /api/jobs/<id>/comfy/view 代理图片，下载链接默认带 job_id，已与服务器绑定
+
+如何使用（账号）
+用 CSV 管理账号
+复制 users.csv.example 为 users.csv
+用 tools/user_admin.py 管理（推荐），或直接编辑 CSV
+admin 用户可以访问 /admin/settings；普通 user 不能
+
+服务器与任务
+app/jobs2.py（服务器选择、job.comfy_url 绑定、健康检查、代理与下载）
+app/init.py（注册 admin blueprint，绑定 worker）
+templates/main.html（预览图片改为 job 绑定代理）
+后台管理,
+app/admin.py（后台接口与页面）
+templates/admin_settings.html（后台页面）http://127.0.0.1:5000/admin/settings
+登录与权限
+app/auth.py（CSV 支持、role 与 active/expire 校验、session 中写 role）
+users.csv.example、tools/user_admin.py（管理工具）
+
+为运维人员创建 admin 账号（示例）：
+python tools/user_admin.py add-user duyz --password "690818" --role admin --expire 2099-12-31
+改密码：python tools/user_admin.py set-password admin --password "NewPass123!"
+列表：python tools/user_admin.py list
+停用：python tools/user_admin.py deactivate admin（或 activate 恢复）
+
+登录页：http://127.0.0.1:5000/login
+首页（用户面板）：http://127.0.0.1:5000/
+历史页：http://127.0.0.1:5000/history
+后台设置（管理员）：http://127.0.0.1:5000/admin/settings
+退出页：点击“退出”或 http://127.0.0.1:5000/logout_page

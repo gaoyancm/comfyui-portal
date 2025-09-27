@@ -1,0 +1,106 @@
+{
+  "name": "L13_2_API",
+  "fields": [
+    {
+      "name": "tts_text",
+      "label": "合成文本",
+      "type": "textarea",
+      "default": "妈妈，妈妈，，带小喵一起搭个飞机，小喵也想飞起来"
+    },
+    {
+      "name": "prompt_text",
+      "label": "参考文本",
+      "type": "textarea",
+      "default": "你信不信，女人一生中最大的悲哀，不是没钱，不是生病，更不是变老，而是年轻时看错了人"
+    },
+    {
+      "name": "prompt_audio",
+      "label": "参考音频",
+      "type": "file",
+      "default": "女声.MP3",
+      "allow_upload": true,
+      "accept": "audio/*",
+      "file": {
+        "kind": "audio",
+        "dirs": [
+          "assets/audio",
+          "uploads"
+        ],
+        "extensions": [
+          ".aac",
+          ".flac",
+          ".m4a",
+          ".mp3",
+          ".ogg",
+          ".wav"
+        ]
+      },
+      "help": "可从 assets/audio 或 uploads 选择/上传"
+    },
+    {
+      "name": "inference_mode",
+      "label": "推理模式",
+      "type": "text",
+      "default": "3s极速复刻"
+    },
+    {
+      "name": "voice",
+      "label": "音色",
+      "type": "text",
+      "default": "中文女"
+    },
+    {
+      "name": "seed",
+      "label": "随机种子",
+      "type": "integer",
+      "default": 469
+    },
+    {
+      "name": "speed",
+      "label": "语速",
+      "type": "number",
+      "default": 1,
+      "step": 0.1
+    },
+    {
+      "name": "filename_prefix",
+      "label": "保存前缀",
+      "type": "text",
+      "default": "audio/ComfyUI"
+    }
+  ],
+  "mapping": [
+    {
+      "path": "2.inputs.text",
+      "value": "$tts_text"
+    },
+    {
+      "path": "12.inputs.text",
+      "value": "$prompt_text"
+    },
+    {
+      "path": "13.inputs.audio",
+      "value": "$file:prompt_audio"
+    },
+    {
+      "path": "15.inputs.inference_mode",
+      "value": "$inference_mode"
+    },
+    {
+      "path": "15.inputs.sft_dropdown",
+      "value": "$voice"
+    },
+    {
+      "path": "15.inputs.seed",
+      "value": "$seed"
+    },
+    {
+      "path": "15.inputs.speed",
+      "value": "$speed"
+    },
+    {
+      "path": "14.inputs.filename_prefix",
+      "value": "$filename_prefix"
+    }
+  ]
+}

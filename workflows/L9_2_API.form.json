@@ -1,0 +1,161 @@
+{
+  "name": "L9_2_API",
+  "fields": [
+    {
+      "name": "positive",
+      "label": "正面提示词",
+      "type": "textarea",
+      "default": "Cool sunglasses"
+    },
+    {
+      "name": "negative",
+      "label": "负面提示词",
+      "type": "textarea",
+      "default": "watermark, text\n"
+    },
+    {
+      "name": "seed",
+      "label": "随机种子",
+      "type": "integer",
+      "default": 1090810732489381
+    },
+    {
+      "name": "steps",
+      "label": "步数",
+      "type": "integer",
+      "default": 20,
+      "min": 1
+    },
+    {
+      "name": "cfg",
+      "label": "CFG",
+      "type": "number",
+      "default": 8,
+      "min": 0
+    },
+    {
+      "name": "sampler_name",
+      "label": "采样器",
+      "type": "select",
+      "default": "uni_pc_bh2",
+      "options": [
+        "euler",
+        "euler_a",
+        "dpmpp_2m",
+        "dpmpp_2m_sde",
+        "ddim",
+        "uni_pc_bh2"
+      ]
+    },
+    {
+      "name": "scheduler",
+      "label": "调度器",
+      "type": "select",
+      "default": "normal",
+      "options": [
+        "normal",
+        "karras",
+        "ddim_uniform"
+      ]
+    },
+    {
+      "name": "denoise",
+      "label": "降噪强度",
+      "type": "number",
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "name": "image_path",
+      "label": "输入图像",
+      "type": "file",
+      "default": "clipspace/clipspace-mask-404833.8999999985.png [input]",
+      "allow_upload": true,
+      "accept": "image/*",
+      "file": {
+        "kind": "image",
+        "dirs": [
+          "assets/images",
+          "uploads"
+        ],
+        "extensions": [
+          ".jpeg",
+          ".jpg",
+          ".png",
+          ".webp"
+        ]
+      },
+      "help": "可从 assets/images 或 uploads 选择/上传"
+    },
+    {
+      "name": "megapixels",
+      "label": "目标像素(MP)",
+      "type": "number",
+      "default": 0.25
+    },
+    {
+      "name": "grow_mask_by",
+      "label": "掩码扩展",
+      "type": "integer",
+      "default": 6
+    },
+    {
+      "name": "filename_prefix",
+      "label": "保存前缀",
+      "type": "text",
+      "default": "ComfyUI"
+    }
+  ],
+  "mapping": [
+    {
+      "path": "6.inputs.text",
+      "value": "$positive"
+    },
+    {
+      "path": "7.inputs.text",
+      "value": "$negative"
+    },
+    {
+      "path": "3.inputs.seed",
+      "value": "$seed"
+    },
+    {
+      "path": "3.inputs.steps",
+      "value": "$steps"
+    },
+    {
+      "path": "3.inputs.cfg",
+      "value": "$cfg"
+    },
+    {
+      "path": "3.inputs.sampler_name",
+      "value": "$sampler_name"
+    },
+    {
+      "path": "3.inputs.scheduler",
+      "value": "$scheduler"
+    },
+    {
+      "path": "3.inputs.denoise",
+      "value": "$denoise"
+    },
+    {
+      "path": "20.inputs.image",
+      "value": "$file:image_path"
+    },
+    {
+      "path": "33.inputs.megapixels",
+      "value": "$megapixels"
+    },
+    {
+      "path": "26.inputs.grow_mask_by",
+      "value": "$grow_mask_by"
+    },
+    {
+      "path": "9.inputs.filename_prefix",
+      "value": "$filename_prefix"
+    }
+  ]
+}

@@ -1,0 +1,309 @@
+{
+  "name": "L16_1_API",
+  "fields": [
+    {
+      "name": "image_path",
+      "label": "输入图像",
+      "type": "file",
+      "default": "Cat (2).png",
+      "allow_upload": true,
+      "accept": "image/*",
+      "file": {
+        "kind": "image",
+        "dirs": [
+          "assets/images",
+          "uploads"
+        ],
+        "extensions": [
+          ".jpeg",
+          ".jpg",
+          ".png",
+          ".webp"
+        ]
+      },
+      "help": "可从 assets/images 或 uploads 选择/上传"
+    },
+    {
+      "name": "audio_path",
+      "label": "输入音频",
+      "type": "file",
+      "default": "天雷滚滚我好怕怕.wav",
+      "allow_upload": true,
+      "accept": "audio/*",
+      "file": {
+        "kind": "audio",
+        "dirs": [
+          "assets/audio",
+          "uploads"
+        ],
+        "extensions": [
+          ".aac",
+          ".flac",
+          ".m4a",
+          ".mp3",
+          ".ogg",
+          ".wav"
+        ]
+      },
+      "help": "可从 assets/audio 或 uploads 选择/上传"
+    },
+    {
+      "name": "audio_start",
+      "label": "音频起点(秒)",
+      "type": "number",
+      "default": 0,
+      "step": 0.1
+    },
+    {
+      "name": "audio_duration",
+      "label": "音频时长(秒)",
+      "type": "number",
+      "default": 14,
+      "step": 0.1
+    },
+    {
+      "name": "duration",
+      "label": "生成时长(秒)",
+      "type": "number",
+      "default": 10000,
+      "step": 0.1
+    },
+    {
+      "name": "expand_ratio",
+      "label": "扩展比例",
+      "type": "number",
+      "default": 0.1,
+      "step": 0.05
+    },
+    {
+      "name": "min_resolution",
+      "label": "最小分辨率",
+      "type": "integer",
+      "default": 512
+    },
+    {
+      "name": "seed",
+      "label": "随机种子",
+      "type": "integer",
+      "default": 0
+    },
+    {
+      "name": "inference_steps",
+      "label": "采样步数",
+      "type": "integer",
+      "default": 25,
+      "min": 1
+    },
+    {
+      "name": "fps",
+      "label": "帧率",
+      "type": "integer",
+      "default": 25,
+      "min": 1
+    },
+    {
+      "name": "dynamic_scale",
+      "label": "动态缩放",
+      "type": "number",
+      "default": 1,
+      "step": 0.1
+    },
+    {
+      "name": "sonic_unet",
+      "label": "SONIC UNet",
+      "type": "text",
+      "default": "unet.pth"
+    },
+    {
+      "name": "ip_audio_scale",
+      "label": "音频引导强度",
+      "type": "number",
+      "default": 1,
+      "step": 0.1
+    },
+    {
+      "name": "use_interframe",
+      "label": "启用插帧",
+      "type": "select",
+      "default": true,
+      "options": [
+        true,
+        false
+      ]
+    },
+    {
+      "name": "dtype",
+      "label": "权重精度",
+      "type": "text",
+      "default": "fp16"
+    },
+    {
+      "name": "ckpt_name",
+      "label": "模型(ckpt)",
+      "type": "text",
+      "default": "svd_xt_1_1.safetensors"
+    },
+    {
+      "name": "filename_prefix",
+      "label": "视频前缀",
+      "type": "text",
+      "default": "AnimateDiff"
+    },
+    {
+      "name": "format",
+      "label": "封装格式",
+      "type": "text",
+      "default": "video/h264-mp4"
+    },
+    {
+      "name": "pix_fmt",
+      "label": "像素格式",
+      "type": "text",
+      "default": "yuv420p"
+    },
+    {
+      "name": "crf",
+      "label": "CRF",
+      "type": "integer",
+      "default": 19
+    },
+    {
+      "name": "save_metadata",
+      "label": "保存元数据",
+      "type": "select",
+      "default": true,
+      "options": [
+        true,
+        false
+      ]
+    },
+    {
+      "name": "trim_to_audio",
+      "label": "裁剪至音频",
+      "type": "select",
+      "default": false,
+      "options": [
+        true,
+        false
+      ]
+    },
+    {
+      "name": "pingpong",
+      "label": "往返播放",
+      "type": "select",
+      "default": false,
+      "options": [
+        true,
+        false
+      ]
+    },
+    {
+      "name": "save_output",
+      "label": "保存视频",
+      "type": "select",
+      "default": true,
+      "options": [
+        true,
+        false
+      ]
+    }
+  ],
+  "mapping": [
+    {
+      "path": "285.inputs.image",
+      "value": "$file:image_path"
+    },
+    {
+      "path": "287.inputs.audio",
+      "value": "$file:audio_path"
+    },
+    {
+      "path": "287.inputs.start_time",
+      "value": "$audio_start"
+    },
+    {
+      "path": "287.inputs.duration",
+      "value": "$audio_duration"
+    },
+    {
+      "path": "282.inputs.duration",
+      "value": "$duration"
+    },
+    {
+      "path": "282.inputs.expand_ratio",
+      "value": "$expand_ratio"
+    },
+    {
+      "path": "282.inputs.min_resolution",
+      "value": "$min_resolution"
+    },
+    {
+      "path": "280.inputs.seed",
+      "value": "$seed"
+    },
+    {
+      "path": "280.inputs.inference_steps",
+      "value": "$inference_steps"
+    },
+    {
+      "path": "280.inputs.fps",
+      "value": "$fps"
+    },
+    {
+      "path": "280.inputs.dynamic_scale",
+      "value": "$dynamic_scale"
+    },
+    {
+      "path": "281.inputs.sonic_unet",
+      "value": "$sonic_unet"
+    },
+    {
+      "path": "281.inputs.ip_audio_scale",
+      "value": "$ip_audio_scale"
+    },
+    {
+      "path": "281.inputs.use_interframe",
+      "value": "$use_interframe"
+    },
+    {
+      "path": "281.inputs.dtype",
+      "value": "$dtype"
+    },
+    {
+      "path": "283.inputs.ckpt_name",
+      "value": "$ckpt_name"
+    },
+    {
+      "path": "286.inputs.filename_prefix",
+      "value": "$filename_prefix"
+    },
+    {
+      "path": "286.inputs.format",
+      "value": "$format"
+    },
+    {
+      "path": "286.inputs.pix_fmt",
+      "value": "$pix_fmt"
+    },
+    {
+      "path": "286.inputs.crf",
+      "value": "$crf"
+    },
+    {
+      "path": "286.inputs.save_metadata",
+      "value": "$save_metadata"
+    },
+    {
+      "path": "286.inputs.trim_to_audio",
+      "value": "$trim_to_audio"
+    },
+    {
+      "path": "286.inputs.pingpong",
+      "value": "$pingpong"
+    },
+    {
+      "path": "286.inputs.save_output",
+      "value": "$save_output"
+    }
+  ]
+}

@@ -36,10 +36,10 @@ async function listWorkflows(){
       const url = tr.querySelector('input').value.trim();
       const span = tr.querySelector('.res'); span.textContent='...';
       if(!url){ span.textContent='(空)'; return; }
-      const r = await fetch('/api/health?server='+encodeURIComponent(url));
+      const r = await fetch(空)server='+encodeURIComponent(url));
       const j = await r.json();
       if(j.ok){ span.textContent = '可用 '+j.latency_ms+'ms'; span.className='res ok'; }
-      else { span.textContent = '不可用 '+(j.error||''); span.className='res err'; }
+      else { span.textContent = '不可用  '+(j.error||''); span.className='res err'; }
     }
   });
 }
@@ -49,7 +49,7 @@ async function save(){
   const servers = {}; inputs.forEach(i=>{ if(i.value.trim()) servers[i.dataset.wf]=i.value.trim(); });
   const r = await fetch('/api/admin/servers', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({servers})});
   const j = await r.json();
-  document.getElementById('msg').textContent = j.ok? '已保存': ('保存失败: '+(j.msg||''));
+  document.getElementById(空) '已保存': ('保存失败: '+(j.msg||''));
 }
 
 document.getElementById('btnSave').onclick = save;

@@ -1,0 +1,68 @@
+{
+  "2": {
+    "inputs": {
+      "text": "妈妈，妈妈，，带小喵一起搭个飞机，小喵也想飞起来"
+    },
+    "class_type": "TextNode",
+    "_meta": {
+      "title": "TextNode"
+    }
+  },
+  "12": {
+    "inputs": {
+      "text": "你信不信，女人一生中最大的悲哀，不是没钱，不是生病，更不是变老，而是年轻时看错了人"
+    },
+    "class_type": "TextNode",
+    "_meta": {
+      "title": "TextNode"
+    }
+  },
+  "13": {
+    "inputs": {
+      "audio": "女声.MP3",
+      "audioUI": ""
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "加载音频"
+    }
+  },
+  "14": {
+    "inputs": {
+      "filename_prefix": "audio/ComfyUI",
+      "audioUI": "",
+      "audio": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "SaveAudio",
+    "_meta": {
+      "title": "保存音频"
+    }
+  },
+  "15": {
+    "inputs": {
+      "speed": 1,
+      "inference_mode": "3s极速复刻",
+      "sft_dropdown": "中文女",
+      "seed": 469,
+      "tts_text": [
+        "2",
+        0
+      ],
+      "prompt_text": [
+        "12",
+        0
+      ],
+      "prompt_wav": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "CosyVoiceNode",
+    "_meta": {
+      "title": "CosyVoiceNode"
+    }
+  }
+}

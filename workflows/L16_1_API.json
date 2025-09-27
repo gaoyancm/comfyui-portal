@@ -1,0 +1,147 @@
+{
+  "280": {
+    "inputs": {
+      "seed": 0,
+      "inference_steps": 25,
+      "dynamic_scale": 1,
+      "fps": 25,
+      "model": [
+        "281",
+        0
+      ],
+      "data_dict": [
+        "282",
+        0
+      ]
+    },
+    "class_type": "SONICSampler",
+    "_meta": {
+      "title": "SONICSampler"
+    }
+  },
+  "281": {
+    "inputs": {
+      "sonic_unet": "unet.pth",
+      "ip_audio_scale": 1,
+      "use_interframe": true,
+      "dtype": "fp16",
+      "model": [
+        "283",
+        0
+      ]
+    },
+    "class_type": "SONICTLoader",
+    "_meta": {
+      "title": "SONICTLoader"
+    }
+  },
+  "282": {
+    "inputs": {
+      "min_resolution": 512,
+      "duration": 10000,
+      "expand_ratio": 0.1,
+      "clip_vision": [
+        "283",
+        1
+      ],
+      "vae": [
+        "283",
+        2
+      ],
+      "audio": [
+        "287",
+        0
+      ],
+      "image": [
+        "285",
+        0
+      ],
+      "weight_dtype": [
+        "281",
+        1
+      ]
+    },
+    "class_type": "SONIC_PreData",
+    "_meta": {
+      "title": "SONIC_PreData"
+    }
+  },
+  "283": {
+    "inputs": {
+      "ckpt_name": "svd_xt_1_1.safetensors"
+    },
+    "class_type": "ImageOnlyCheckpointLoader",
+    "_meta": {
+      "title": "Checkpoint加载器（仅图像）"
+    }
+  },
+  "285": {
+    "inputs": {
+      "image": "Cat (2).png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
+  "286": {
+    "inputs": {
+      "frame_rate": [
+        "280",
+        1
+      ],
+      "loop_count": 0,
+      "filename_prefix": "AnimateDiff",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "288",
+        0
+      ],
+      "audio": [
+        "287",
+        0
+      ],
+      "vae": [
+        "283",
+        2
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Video Combine 🎥🅥🅗🅢"
+    }
+  },
+  "287": {
+    "inputs": {
+      "audio": "天雷滚滚我好怕怕.wav",
+      "start_time": 0,
+      "duration": 14
+    },
+    "class_type": "VHS_LoadAudioUpload",
+    "_meta": {
+      "title": "Load Audio (Upload)🎥🅥🅗🅢"
+    }
+  },
+  "288": {
+    "inputs": {
+      "pixels": [
+        "280",
+        0
+      ],
+      "vae": [
+        "283",
+        2
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE编码"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+﻿# Python artefacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+
+# Environment configs
+.env
+.env.local
+
+# Local data/output
+uploads/
+results/
+
+# IDE
+.vscode/
+.idea/
+

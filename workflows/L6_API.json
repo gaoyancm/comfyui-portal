@@ -1,0 +1,131 @@
+{
+  "1": {
+    "inputs": {
+      "ckpt_name": "majicmixSombre_v20.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Checkpoint加载器（简易）"
+    }
+  },
+  "2": {
+    "inputs": {
+      "stop_at_clip_layer": -2,
+      "clip": [
+        "1",
+        1
+      ]
+    },
+    "class_type": "CLIPSetLastLayer",
+    "_meta": {
+      "title": "设置CLIP最后一层"
+    }
+  },
+  "3": {
+    "inputs": {
+      "text": "\u0000\u0000\u0000\u0000A single girl with long hair, large breasts, wearing a shirt, black hair, showing her navel and midriff, with a belt, pants, a mole, arms raised, a crop top, a tattoo, denim material, arms behind her head, and jeans, depicted in a realistic style.",
+      "speak_and_recognation": {
+        "__value__": [
+          false,
+          true
+        ]
+      },
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码"
+    }
+  },
+  "4": {
+    "inputs": {
+      "text": "ng_deepnegative_v1_75t,(badhandv4:1.2),EasyNegative,(worst quality:2),animation,blur,deformation,disfigurement,low quality,collage,grainy,logo,abstract,illustration,computer-generated,distortion,poor anatomy,poor hands,missing fingers,poor feet,extra fingers,variant hands,poor proportions,extra limbs,extra fingers,abnormal limbs,missing arms,missing legs,extra arms,extra legs,mutated straps,fused yurts,too many fingers,the whole movement is uncoordinated,the picture is weird,the picture is slow,the dress is too bold and exposed,,nsfw",
+      "speak_and_recognation": {
+        "__value__": [
+          false,
+          true
+        ]
+      },
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码"
+    }
+  },
+  "5": {
+    "inputs": {
+      "seed": 1086072893879472,
+      "steps": 120,
+      "cfg": 7.5,
+      "sampler_name": "euler",
+      "scheduler": "karras",
+      "denoise": 1,
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "3",
+        0
+      ],
+      "negative": [
+        "4",
+        0
+      ],
+      "latent_image": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "K采样器"
+    }
+  },
+  "6": {
+    "inputs": {
+      "width": 768,
+      "height": 1280,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "空Latent图像"
+    }
+  },
+  "7": {
+    "inputs": {
+      "samples": [
+        "5",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "9": {
+    "inputs": {
+      "images": [
+        "7",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "预览图像"
+    }
+  }
+}

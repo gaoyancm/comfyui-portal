@@ -1,0 +1,91 @@
+{
+  "283": {
+    "inputs": {
+      "ckpt_name": "svd_xt_1_1.safetensors"
+    },
+    "class_type": "ImageOnlyCheckpointLoader",
+    "_meta": {
+      "title": "Checkpoint加载器（仅图像）"
+    }
+  },
+  "286": {
+    "inputs": {
+      "frame_rate": [
+        "292",
+        0
+      ],
+      "loop_count": 0,
+      "filename_prefix": "SonicFinal",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 18,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "288",
+        0
+      ],
+      "audio": [
+        "298",
+        0
+      ],
+      "vae": [
+        "283",
+        2
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Video Combine 🎥🅥🅗🅢"
+    }
+  },
+  "288": {
+    "inputs": {
+      "pixels": [
+        "294",
+        0
+      ],
+      "vae": [
+        "283",
+        2
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE编码"
+    }
+  },
+  "292": {
+    "inputs": {
+      "number": 25
+    },
+    "class_type": "Number",
+    "_meta": {
+      "title": "Number"
+    }
+  },
+  "294": {
+    "inputs": {
+      "directory": "output/frames/",
+      "image_load_cap": 0,
+      "skip_first_images": 0,
+      "select_every_nth": 1
+    },
+    "class_type": "VHS_LoadImagesPath",
+    "_meta": {
+      "title": "Load Images (Path) 🎥🅥🅗🅢"
+    }
+  },
+  "298": {
+    "inputs": {
+      "audio": "ComfyUI_00014_.flac",
+      "audioUI": ""
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "加载音频"
+    }
+  }
+}

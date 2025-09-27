@@ -1,0 +1,64 @@
+{
+  "name": "L11_1_API",
+  "fields": [
+    {
+      "name": "image_path",
+      "label": "输入图像",
+      "type": "file",
+      "default": "1.jpg",
+      "allow_upload": true,
+      "accept": "image/*",
+      "file": {
+        "kind": "image",
+        "dirs": [
+          "assets/images",
+          "uploads"
+        ],
+        "extensions": [
+          ".jpeg",
+          ".jpg",
+          ".png",
+          ".webp"
+        ]
+      },
+      "help": "可从 assets/images 或 uploads 选择/上传"
+    },
+    {
+      "name": "scale_by",
+      "label": "缩放倍率",
+      "type": "number",
+      "default": 2.0000000000000004,
+      "step": 0.1
+    },
+    {
+      "name": "upscale_method",
+      "label": "缩放算法",
+      "type": "text",
+      "default": "nearest-exact"
+    },
+    {
+      "name": "upscale_model",
+      "label": "放大模型",
+      "type": "text",
+      "default": "RealESRGAN_x4plus.pth"
+    }
+  ],
+  "mapping": [
+    {
+      "path": "2.inputs.image",
+      "value": "$file:image_path"
+    },
+    {
+      "path": "5.inputs.scale_by",
+      "value": "$scale_by"
+    },
+    {
+      "path": "5.inputs.upscale_method",
+      "value": "$upscale_method"
+    },
+    {
+      "path": "1.inputs.model_name",
+      "value": "$upscale_model"
+    }
+  ]
+}

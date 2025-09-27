@@ -1,0 +1,211 @@
+{
+  "name": "L9_1_API",
+  "fields": [
+    {
+      "name": "positive",
+      "label": "正面提示词",
+      "type": "textarea",
+      "default": "a close-up of a delicate pink rose with velvety petals,reflecting soft ambient light,Dark green-toned light\n\nThe background consists of blurred pink roses and green foliage, creating a dreamy and harmonious depth. \n\n(soft lighting, dim background, cinematic lighting, realistic shading, gentle contrast, warm tones), "
+    },
+    {
+      "name": "negative",
+      "label": "负面提示词",
+      "type": "textarea",
+      "default": "watermark, text"
+    },
+    {
+      "name": "seed",
+      "label": "随机种子",
+      "type": "integer",
+      "default": 922554363180252
+    },
+    {
+      "name": "steps",
+      "label": "步数",
+      "type": "integer",
+      "default": 20,
+      "min": 1
+    },
+    {
+      "name": "cfg",
+      "label": "CFG",
+      "type": "number",
+      "default": 7,
+      "min": 0
+    },
+    {
+      "name": "sampler_name",
+      "label": "采样器",
+      "type": "select",
+      "default": "dpmpp_2m",
+      "options": [
+        "euler",
+        "euler_a",
+        "dpmpp_2m",
+        "dpmpp_2m_sde",
+        "ddim",
+        "uni_pc_bh2"
+      ]
+    },
+    {
+      "name": "scheduler",
+      "label": "调度器",
+      "type": "select",
+      "default": "karras",
+      "options": [
+        "normal",
+        "karras",
+        "ddim_uniform"
+      ]
+    },
+    {
+      "name": "denoise",
+      "label": "降噪强度",
+      "type": "number",
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "name": "image_path",
+      "label": "输入图像",
+      "type": "file",
+      "default": "inpaint_model_outpainting-2.webp",
+      "allow_upload": true,
+      "accept": "image/*",
+      "file": {
+        "kind": "image",
+        "dirs": [
+          "assets/images",
+          "uploads"
+        ],
+        "extensions": [
+          ".jpeg",
+          ".jpg",
+          ".png",
+          ".webp"
+        ]
+      },
+      "help": "可从 assets/images 或 uploads 选择/上传"
+    },
+    {
+      "name": "megapixels",
+      "label": "目标像素(MP)",
+      "type": "number",
+      "default": 0.25
+    },
+    {
+      "name": "pad_left",
+      "label": "外扩左",
+      "type": "integer",
+      "default": 40
+    },
+    {
+      "name": "pad_top",
+      "label": "外扩上",
+      "type": "integer",
+      "default": 40
+    },
+    {
+      "name": "pad_right",
+      "label": "外扩右",
+      "type": "integer",
+      "default": 40
+    },
+    {
+      "name": "pad_bottom",
+      "label": "外扩下",
+      "type": "integer",
+      "default": 128
+    },
+    {
+      "name": "feather",
+      "label": "羽化像素",
+      "type": "integer",
+      "default": 10
+    },
+    {
+      "name": "grow_mask_by",
+      "label": "掩码扩展",
+      "type": "integer",
+      "default": 10
+    },
+    {
+      "name": "filename_prefix",
+      "label": "保存前缀",
+      "type": "text",
+      "default": "ComfyUI"
+    }
+  ],
+  "mapping": [
+    {
+      "path": "6.inputs.text",
+      "value": "$positive"
+    },
+    {
+      "path": "7.inputs.text",
+      "value": "$negative"
+    },
+    {
+      "path": "3.inputs.seed",
+      "value": "$seed"
+    },
+    {
+      "path": "3.inputs.steps",
+      "value": "$steps"
+    },
+    {
+      "path": "3.inputs.cfg",
+      "value": "$cfg"
+    },
+    {
+      "path": "3.inputs.sampler_name",
+      "value": "$sampler_name"
+    },
+    {
+      "path": "3.inputs.scheduler",
+      "value": "$scheduler"
+    },
+    {
+      "path": "3.inputs.denoise",
+      "value": "$denoise"
+    },
+    {
+      "path": "20.inputs.image",
+      "value": "$file:image_path"
+    },
+    {
+      "path": "38.inputs.megapixels",
+      "value": "$megapixels"
+    },
+    {
+      "path": "30.inputs.left",
+      "value": "$pad_left"
+    },
+    {
+      "path": "30.inputs.top",
+      "value": "$pad_top"
+    },
+    {
+      "path": "30.inputs.right",
+      "value": "$pad_right"
+    },
+    {
+      "path": "30.inputs.bottom",
+      "value": "$pad_bottom"
+    },
+    {
+      "path": "30.inputs.feathering",
+      "value": "$feather"
+    },
+    {
+      "path": "26.inputs.grow_mask_by",
+      "value": "$grow_mask_by"
+    },
+    {
+      "path": "9.inputs.filename_prefix",
+      "value": "$filename_prefix"
+    }
+  ]
+}

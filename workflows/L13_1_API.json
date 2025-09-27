@@ -1,0 +1,53 @@
+{
+  "2": {
+    "inputs": {
+      "text": "　　妹妹今年30多岁了，从头到脚都是天生的，全是爸爸妈妈的馈赠，可杏子拍的视频老是遭人嫌弃，哥哥你千万别像他们一样嫌弃我\n　　多给我点鼓励行吗，我好想听到你为我加油打气，有你的支持，我才更有动力啊\n　　最后妹妹邀请你点我头像，去看看我主页的1号视频，或许对你有所帮助，都是妹妹想对你说的真心话'"
+    },
+    "class_type": "TextNode",
+    "_meta": {
+      "title": "TextNode"
+    }
+  },
+  "14": {
+    "inputs": {
+      "filename_prefix": "audio/ComfyUI",
+      "audio": [
+        "16",
+        0
+      ]
+    },
+    "class_type": "SaveAudio",
+    "_meta": {
+      "title": "保存音频"
+    }
+  },
+  "15": {
+    "inputs": {
+      "text": "The gentle voice of a little girl"
+    },
+    "class_type": "TextNode",
+    "_meta": {
+      "title": "TextNode"
+    }
+  },
+  "16": {
+    "inputs": {
+      "speed": 1.5,
+      "inference_mode": "自然语言控制",
+      "sft_dropdown": "中文女",
+      "seed": 1414,
+      "tts_text": [
+        "2",
+        0
+      ],
+      "instruct_text": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "CosyVoiceNode",
+    "_meta": {
+      "title": "CosyVoiceNode"
+    }
+  }
+}

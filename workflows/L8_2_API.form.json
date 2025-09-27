@@ -1,0 +1,197 @@
+{
+  "name": "L8_2_API",
+  "fields": [
+    {
+      "name": "positive1",
+      "label": "正面提示词 1",
+      "type": "textarea",
+      "default": "The scene is set in a corner of a modern office room, with a light-colored wooden wall as the background, giving it a warm and comfortable feel. The large window on one side lets in natural light, adding a soft and bright atmosphere to the entire environment. She sits on a gray-blue cushioned chair, which is simple in design but textured, perfectly setting off her professional style. The overall space is simple and orderly, revealing an efficient and quiet office atmosphere. She sits naturally and faces the camera calmly and calmly, as if she is waiting for an important conversation or interview. The whole picture shows the confidence and professionalism of an urban woman in the workplace."
+    },
+    {
+      "name": "positive2",
+      "label": "正面提示词 2",
+      "type": "textarea",
+      "default": "Fat cat, A chubby orange tabby cat with a plump physique and a cute, slightly annoyed expression wears a blue motorcycle helmet and rides a small black scooter. The cat's paws grip the handlebars, and it holds a wicker basket containing fresh vegetables, including eggplants, tomatoes, and lettuce. The background features a blurred outdoor setting with greenery and a paved road. The image is a high-quality photograph."
+    },
+    {
+      "name": "negative",
+      "label": "负面提示词",
+      "type": "textarea",
+      "default": "low quality, blurry, cartoon, anime, unrealistic, bad hands, bad anatomy, lowres, jpeg artifacts, watermark, "
+    },
+    {
+      "name": "steps",
+      "label": "步数",
+      "type": "integer",
+      "default": 25,
+      "min": 1
+    },
+    {
+      "name": "guidance",
+      "label": "Guidance",
+      "type": "number",
+      "default": 3.5
+    },
+    {
+      "name": "sampler_name",
+      "label": "采样器",
+      "type": "select",
+      "default": "euler",
+      "options": [
+        "euler",
+        "euler_a",
+        "dpmpp_2m",
+        "dpmpp_2m_sde",
+        "ddim"
+      ]
+    },
+    {
+      "name": "scheduler",
+      "label": "调度器",
+      "type": "select",
+      "default": "ddim_uniform",
+      "options": [
+        "normal",
+        "karras",
+        "ddim_uniform"
+      ]
+    },
+    {
+      "name": "denoise",
+      "label": "降噪强度",
+      "type": "number",
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "name": "width",
+      "label": "宽度",
+      "type": "integer",
+      "default": 1024,
+      "min": 64
+    },
+    {
+      "name": "height",
+      "label": "高度",
+      "type": "integer",
+      "default": 1024,
+      "min": 64
+    },
+    {
+      "name": "vae_name",
+      "label": "VAE",
+      "type": "text",
+      "default": "ae.safetensors"
+    },
+    {
+      "name": "unet_name",
+      "label": "UNet",
+      "type": "text",
+      "default": "flux1-dev-fp8.safetensors"
+    },
+    {
+      "name": "lora_name1",
+      "label": "LoRA 1",
+      "type": "text",
+      "default": "moder-office-lady-il-01.safetensors"
+    },
+    {
+      "name": "strength1",
+      "label": "LoRA 1 强度",
+      "type": "number",
+      "default": 0.8000000000000002,
+      "step": 0.05
+    },
+    {
+      "name": "lora_name2",
+      "label": "LoRA 2",
+      "type": "text",
+      "default": "胖橘_F.1-胖橘.safetensors"
+    },
+    {
+      "name": "strength2",
+      "label": "LoRA 2 强度",
+      "type": "number",
+      "default": 0.9500000000000002,
+      "step": 0.05
+    },
+    {
+      "name": "filename_prefix",
+      "label": "保存前缀",
+      "type": "text",
+      "default": "ComfyUI"
+    }
+  ],
+  "mapping": [
+    {
+      "path": "6.inputs.text",
+      "value": "$positive1"
+    },
+    {
+      "path": "50.inputs.text",
+      "value": "$positive2"
+    },
+    {
+      "path": "59.inputs.text",
+      "value": "$negative"
+    },
+    {
+      "path": "17.inputs.steps",
+      "value": "$steps"
+    },
+    {
+      "path": "26.inputs.guidance",
+      "value": "$guidance"
+    },
+    {
+      "path": "16.inputs.sampler_name",
+      "value": "$sampler_name"
+    },
+    {
+      "path": "17.inputs.scheduler",
+      "value": "$scheduler"
+    },
+    {
+      "path": "17.inputs.denoise",
+      "value": "$denoise"
+    },
+    {
+      "path": "27.inputs.width",
+      "value": "$width"
+    },
+    {
+      "path": "27.inputs.height",
+      "value": "$height"
+    },
+    {
+      "path": "10.inputs.vae_name",
+      "value": "$vae_name"
+    },
+    {
+      "path": "47.inputs.unet_name",
+      "value": "$unet_name"
+    },
+    {
+      "path": "64.inputs.lora_name",
+      "value": "$lora_name1"
+    },
+    {
+      "path": "64.inputs.strength_model",
+      "value": "$strength1"
+    },
+    {
+      "path": "49.inputs.lora_name",
+      "value": "$lora_name2"
+    },
+    {
+      "path": "49.inputs.strength_model",
+      "value": "$strength2"
+    },
+    {
+      "path": "9.inputs.filename_prefix",
+      "value": "$filename_prefix"
+    }
+  ]
+}

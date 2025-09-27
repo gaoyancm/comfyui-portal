@@ -1,0 +1,177 @@
+{
+  "name": "L14_1_API",
+  "fields": [
+    {
+      "name": "positive",
+      "label": "正面提示词",
+      "type": "textarea",
+      "default": "heaven church electronic dance music"
+    },
+    {
+      "name": "negative",
+      "label": "负面提示词",
+      "type": "textarea",
+      "default": ""
+    },
+    {
+      "name": "seed",
+      "label": "随机种子",
+      "type": "integer",
+      "default": 479072421484431
+    },
+    {
+      "name": "steps",
+      "label": "步数",
+      "type": "integer",
+      "default": 50,
+      "min": 1
+    },
+    {
+      "name": "cfg",
+      "label": "CFG",
+      "type": "number",
+      "default": 4.98,
+      "min": 0
+    },
+    {
+      "name": "sampler_name",
+      "label": "采样器",
+      "type": "select",
+      "default": "dpmpp_3m_sde_gpu",
+      "options": [
+        "dpmpp_3m_sde_gpu",
+        "euler",
+        "euler_a",
+        "dpmpp_2m",
+        "ddim"
+      ]
+    },
+    {
+      "name": "scheduler",
+      "label": "调度器",
+      "type": "select",
+      "default": "exponential",
+      "options": [
+        "exponential",
+        "normal",
+        "karras",
+        "ddim_uniform"
+      ]
+    },
+    {
+      "name": "denoise",
+      "label": "降噪强度",
+      "type": "number",
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "name": "seconds",
+      "label": "音频时长(秒)",
+      "type": "number",
+      "default": 47.6,
+      "step": 0.1
+    },
+    {
+      "name": "batch_size",
+      "label": "批量大小",
+      "type": "integer",
+      "default": 1,
+      "min": 1
+    },
+    {
+      "name": "clip_name",
+      "label": "文本编码模型",
+      "type": "text",
+      "default": "t5_base.safetensors"
+    },
+    {
+      "name": "clip_device",
+      "label": "设备",
+      "type": "text",
+      "default": "default"
+    },
+    {
+      "name": "clip_type",
+      "label": "类型",
+      "type": "text",
+      "default": "stable_audio"
+    },
+    {
+      "name": "ckpt_name",
+      "label": "模型(ckpt)",
+      "type": "text",
+      "default": "model.safetensors"
+    },
+    {
+      "name": "filename_prefix",
+      "label": "保存前缀",
+      "type": "text",
+      "default": "audio/ComfyUI"
+    }
+  ],
+  "mapping": [
+    {
+      "path": "6.inputs.text",
+      "value": "$positive"
+    },
+    {
+      "path": "7.inputs.text",
+      "value": "$negative"
+    },
+    {
+      "path": "3.inputs.seed",
+      "value": "$seed"
+    },
+    {
+      "path": "3.inputs.steps",
+      "value": "$steps"
+    },
+    {
+      "path": "3.inputs.cfg",
+      "value": "$cfg"
+    },
+    {
+      "path": "3.inputs.sampler_name",
+      "value": "$sampler_name"
+    },
+    {
+      "path": "3.inputs.scheduler",
+      "value": "$scheduler"
+    },
+    {
+      "path": "3.inputs.denoise",
+      "value": "$denoise"
+    },
+    {
+      "path": "11.inputs.seconds",
+      "value": "$seconds"
+    },
+    {
+      "path": "11.inputs.batch_size",
+      "value": "$batch_size"
+    },
+    {
+      "path": "10.inputs.clip_name",
+      "value": "$clip_name"
+    },
+    {
+      "path": "10.inputs.device",
+      "value": "$clip_device"
+    },
+    {
+      "path": "10.inputs.type",
+      "value": "$clip_type"
+    },
+    {
+      "path": "4.inputs.ckpt_name",
+      "value": "$ckpt_name"
+    },
+    {
+      "path": "13.inputs.filename_prefix",
+      "value": "$filename_prefix"
+    }
+  ]
+}

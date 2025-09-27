@@ -1,0 +1,180 @@
+{
+  "name": "L14_2_API",
+  "fields": [
+    {
+      "name": "tags",
+      "label": "风格标签",
+      "type": "textarea",
+      "default": "kawaii, techno, soft female vocals, jpop, idol, fennec girl"
+    },
+    {
+      "name": "lyrics",
+      "label": "歌词",
+      "type": "textarea",
+      "default": "[inst]\n\n[verse]\nふわふわ　おみみが\nゆれるよ　かぜのなか\nきらきら　あおいめ\nみつめる　せかいを\n\n[verse]\nふわふわ　しっぽは\nおおきく　ゆれるよ\nきんいろ　かみのけ\nなびくよ　かぜのなか\n\n[verse]\nコンフィーユーアイの\nまもりびと\nピンクの　セーターで\nえがおを　くれるよ\n\nあおいろ　スカートと\nくろいコート　きんのもよう\nやさしい　ひかりが\nつつむよ　フェネックガール\n\n[verse]\nふわふわ　おみみで\nきこえる　こころの　こえ\nだいすき　フェネックガール\nいつでも　そばにいるよ\n\n\n"
+    },
+    {
+      "name": "lyrics_strength",
+      "label": "歌词权重",
+      "type": "number",
+      "default": 1.0000000000000002,
+      "step": 0.05
+    },
+    {
+      "name": "seed",
+      "label": "随机种子",
+      "type": "integer",
+      "default": 856062820032897
+    },
+    {
+      "name": "steps",
+      "label": "步数",
+      "type": "integer",
+      "default": 50,
+      "min": 1
+    },
+    {
+      "name": "cfg",
+      "label": "CFG",
+      "type": "number",
+      "default": 5,
+      "min": 0
+    },
+    {
+      "name": "sampler_name",
+      "label": "采样器",
+      "type": "select",
+      "default": "euler",
+      "options": [
+        "euler",
+        "euler_a",
+        "dpmpp_2m",
+        "dpmpp_2m_sde",
+        "ddim"
+      ]
+    },
+    {
+      "name": "scheduler",
+      "label": "调度器",
+      "type": "select",
+      "default": "simple",
+      "options": [
+        "simple",
+        "normal",
+        "karras",
+        "ddim_uniform"
+      ]
+    },
+    {
+      "name": "denoise",
+      "label": "降噪强度",
+      "type": "number",
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "name": "seconds",
+      "label": "音频时长(秒)",
+      "type": "number",
+      "default": 150,
+      "step": 0.1
+    },
+    {
+      "name": "batch_size",
+      "label": "批量大小",
+      "type": "integer",
+      "default": 1,
+      "min": 1
+    },
+    {
+      "name": "ckpt_name",
+      "label": "模型(ckpt)",
+      "type": "text",
+      "default": "ace_step_v1_3.5b.safetensors"
+    },
+    {
+      "name": "shift",
+      "label": "采样偏移",
+      "type": "number",
+      "default": 5.000000000000001,
+      "step": 0.5
+    },
+    {
+      "name": "tonemap_multiplier",
+      "label": "Tonemap 乘数",
+      "type": "number",
+      "default": 1.0000000000000002,
+      "step": 0.05
+    },
+    {
+      "name": "filename_prefix",
+      "label": "保存前缀",
+      "type": "text",
+      "default": "audio/ComfyUI"
+    }
+  ],
+  "mapping": [
+    {
+      "path": "14.inputs.tags",
+      "value": "$tags"
+    },
+    {
+      "path": "14.inputs.lyrics",
+      "value": "$lyrics"
+    },
+    {
+      "path": "14.inputs.lyrics_strength",
+      "value": "$lyrics_strength"
+    },
+    {
+      "path": "3.inputs.seed",
+      "value": "$seed"
+    },
+    {
+      "path": "3.inputs.steps",
+      "value": "$steps"
+    },
+    {
+      "path": "3.inputs.cfg",
+      "value": "$cfg"
+    },
+    {
+      "path": "3.inputs.sampler_name",
+      "value": "$sampler_name"
+    },
+    {
+      "path": "3.inputs.scheduler",
+      "value": "$scheduler"
+    },
+    {
+      "path": "3.inputs.denoise",
+      "value": "$denoise"
+    },
+    {
+      "path": "17.inputs.seconds",
+      "value": "$seconds"
+    },
+    {
+      "path": "17.inputs.batch_size",
+      "value": "$batch_size"
+    },
+    {
+      "path": "40.inputs.ckpt_name",
+      "value": "$ckpt_name"
+    },
+    {
+      "path": "45.inputs.shift",
+      "value": "$shift"
+    },
+    {
+      "path": "61.inputs.multiplier",
+      "value": "$tonemap_multiplier"
+    },
+    {
+      "path": "19.inputs.filename_prefix",
+      "value": "$filename_prefix"
+    }
+  ]
+}

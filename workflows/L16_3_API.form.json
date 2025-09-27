@@ -1,0 +1,202 @@
+{
+  "name": "L16_3_API",
+  "fields": [
+    {
+      "name": "image_directory",
+      "label": "帧目录",
+      "type": "text",
+      "default": "output/frames/"
+    },
+    {
+      "name": "image_load_cap",
+      "label": "加载上限",
+      "type": "integer",
+      "default": 0
+    },
+    {
+      "name": "skip_first_images",
+      "label": "跳过前N帧",
+      "type": "integer",
+      "default": 0
+    },
+    {
+      "name": "select_every_nth",
+      "label": "取每N帧",
+      "type": "integer",
+      "default": 1
+    },
+    {
+      "name": "frame_rate",
+      "label": "帧率",
+      "type": "integer",
+      "default": 25,
+      "min": 1
+    },
+    {
+      "name": "audio_path",
+      "label": "音频",
+      "type": "file",
+      "default": "ComfyUI_00014_.flac",
+      "allow_upload": true,
+      "accept": "audio/*",
+      "file": {
+        "kind": "audio",
+        "dirs": [
+          "assets/audio",
+          "uploads"
+        ],
+        "extensions": [
+          ".aac",
+          ".flac",
+          ".m4a",
+          ".mp3",
+          ".ogg",
+          ".wav"
+        ]
+      },
+      "help": "可从 assets/audio 或 uploads 选择/上传"
+    },
+    {
+      "name": "ckpt_name",
+      "label": "模型(ckpt)",
+      "type": "text",
+      "default": "svd_xt_1_1.safetensors"
+    },
+    {
+      "name": "filename_prefix",
+      "label": "视频前缀",
+      "type": "text",
+      "default": "SonicFinal"
+    },
+    {
+      "name": "format",
+      "label": "封装格式",
+      "type": "text",
+      "default": "video/h264-mp4"
+    },
+    {
+      "name": "pix_fmt",
+      "label": "像素格式",
+      "type": "text",
+      "default": "yuv420p"
+    },
+    {
+      "name": "crf",
+      "label": "CRF",
+      "type": "integer",
+      "default": 18
+    },
+    {
+      "name": "loop_count",
+      "label": "循环次数",
+      "type": "integer",
+      "default": 0
+    },
+    {
+      "name": "save_metadata",
+      "label": "保存元数据",
+      "type": "select",
+      "default": true,
+      "options": [
+        true,
+        false
+      ]
+    },
+    {
+      "name": "trim_to_audio",
+      "label": "裁剪至音频",
+      "type": "select",
+      "default": false,
+      "options": [
+        true,
+        false
+      ]
+    },
+    {
+      "name": "pingpong",
+      "label": "往返播放",
+      "type": "select",
+      "default": false,
+      "options": [
+        true,
+        false
+      ]
+    },
+    {
+      "name": "save_output",
+      "label": "保存视频",
+      "type": "select",
+      "default": true,
+      "options": [
+        true,
+        false
+      ]
+    }
+  ],
+  "mapping": [
+    {
+      "path": "294.inputs.directory",
+      "value": "$image_directory"
+    },
+    {
+      "path": "294.inputs.image_load_cap",
+      "value": "$image_load_cap"
+    },
+    {
+      "path": "294.inputs.skip_first_images",
+      "value": "$skip_first_images"
+    },
+    {
+      "path": "294.inputs.select_every_nth",
+      "value": "$select_every_nth"
+    },
+    {
+      "path": "292.inputs.number",
+      "value": "$frame_rate"
+    },
+    {
+      "path": "298.inputs.audio",
+      "value": "$file:audio_path"
+    },
+    {
+      "path": "283.inputs.ckpt_name",
+      "value": "$ckpt_name"
+    },
+    {
+      "path": "286.inputs.filename_prefix",
+      "value": "$filename_prefix"
+    },
+    {
+      "path": "286.inputs.format",
+      "value": "$format"
+    },
+    {
+      "path": "286.inputs.pix_fmt",
+      "value": "$pix_fmt"
+    },
+    {
+      "path": "286.inputs.crf",
+      "value": "$crf"
+    },
+    {
+      "path": "286.inputs.loop_count",
+      "value": "$loop_count"
+    },
+    {
+      "path": "286.inputs.save_metadata",
+      "value": "$save_metadata"
+    },
+    {
+      "path": "286.inputs.trim_to_audio",
+      "value": "$trim_to_audio"
+    },
+    {
+      "path": "286.inputs.pingpong",
+      "value": "$pingpong"
+    },
+    {
+      "path": "286.inputs.save_output",
+      "value": "$save_output"
+    }
+  ]
+}

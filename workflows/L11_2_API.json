@@ -1,0 +1,58 @@
+{
+  "10": {
+    "inputs": {
+      "model_name": "deepseek-ai/Janus-Pro-1B"
+    },
+    "class_type": "JanusModelLoader",
+    "_meta": {
+      "title": "Janus Model Loader"
+    }
+  },
+  "19": {
+    "inputs": {
+      "image": "L11_2_输入.jpeg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
+  "21": {
+    "inputs": {
+      "text_0": "The image depicts a stylized, anime-style illustration of a young person with short, spiky blue hair. The background is a solid blue color, and the person's face is partially visible. The character has a calm and contemplative expression, with one eye slightly open and the other partially closed. The overall aesthetic is minimalistic, with clean lines and a limited color palette.",
+      "text": [
+        "25",
+        0
+      ]
+    },
+    "class_type": "ShowText|pysssss",
+    "_meta": {
+      "title": "Show Text 🐍"
+    }
+  },
+  "25": {
+    "inputs": {
+      "question": "Describe this image in detail.",
+      "seed": 189598427651861,
+      "temperature": 0.1,
+      "top_p": 0.95,
+      "max_new_tokens": 512,
+      "model": [
+        "10",
+        0
+      ],
+      "processor": [
+        "10",
+        1
+      ],
+      "image": [
+        "19",
+        0
+      ]
+    },
+    "class_type": "JanusImageUnderstanding",
+    "_meta": {
+      "title": "Janus Image Understanding"
+    }
+  }
+}

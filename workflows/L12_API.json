@@ -1,0 +1,252 @@
+{
+  "3": {
+    "inputs": {
+      "seed": 353269626580266,
+      "steps": 26,
+      "cfg": 8,
+      "sampler_name": "dpmpp_3m_sde_gpu",
+      "scheduler": "exponential",
+      "denoise": 1,
+      "model": [
+        "40",
+        0
+      ],
+      "positive": [
+        "37",
+        0
+      ],
+      "negative": [
+        "6",
+        0
+      ],
+      "latent_image": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "K采样器"
+    }
+  },
+  "5": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "空Latent图像"
+    }
+  },
+  "6": {
+    "inputs": {
+      "text": [
+        "44",
+        1
+      ],
+      "speak_and_recognation": {
+        "__value__": [
+          false,
+          true
+        ]
+      },
+      "clip": [
+        "40",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "40",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  },
+  "13": {
+    "inputs": {
+      "crop": "center",
+      "clip_vision": [
+        "39",
+        0
+      ],
+      "image": [
+        "34",
+        0
+      ]
+    },
+    "class_type": "CLIPVisionEncode",
+    "_meta": {
+      "title": "CLIP视觉编码"
+    }
+  },
+  "19": {
+    "inputs": {
+      "strength": 0.75,
+      "noise_augmentation": 0,
+      "conditioning": [
+        "42",
+        0
+      ],
+      "clip_vision_output": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "unCLIPConditioning",
+    "_meta": {
+      "title": "unCLIP条件"
+    }
+  },
+  "34": {
+    "inputs": {
+      "image": "mountains1.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
+  "36": {
+    "inputs": {
+      "crop": "center",
+      "clip_vision": [
+        "39",
+        0
+      ],
+      "image": [
+        "38",
+        0
+      ]
+    },
+    "class_type": "CLIPVisionEncode",
+    "_meta": {
+      "title": "CLIP视觉编码"
+    }
+  },
+  "37": {
+    "inputs": {
+      "strength": 0.75,
+      "noise_augmentation": 0,
+      "conditioning": [
+        "19",
+        0
+      ],
+      "clip_vision_output": [
+        "36",
+        0
+      ]
+    },
+    "class_type": "unCLIPConditioning",
+    "_meta": {
+      "title": "unCLIP条件"
+    }
+  },
+  "38": {
+    "inputs": {
+      "image": "sunset.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
+  "39": {
+    "inputs": {
+      "clip_name": "clip_vision_g.safetensors"
+    },
+    "class_type": "CLIPVisionLoader",
+    "_meta": {
+      "title": "加载CLIP视觉"
+    }
+  },
+  "40": {
+    "inputs": {
+      "ckpt_name": "sd_xl_base_1.0.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Checkpoint加载器（简易）"
+    }
+  },
+  "42": {
+    "inputs": {
+      "conditioning": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "条件零化"
+    }
+  },
+  "44": {
+    "inputs": {
+      "from_translate": "chinese",
+      "to_translate": "english",
+      "text": "",
+      "speak_and_recognation": {
+        "__value__": [
+          false,
+          true
+        ]
+      },
+      "clip": [
+        "40",
+        1
+      ]
+    },
+    "class_type": "ArgosTranslateCLIPTextEncodeNode",
+    "_meta": {
+      "title": "Argos Translate CLIP Text Encode Node"
+    }
+  },
+  "45": {
+    "inputs": {
+      "PreviewTextNode_0": "",
+      "speak_and_recognation": {
+        "__value__": [
+          false,
+          true
+        ]
+      },
+      "text": [
+        "44",
+        1
+      ]
+    },
+    "class_type": "PreviewTextNode",
+    "_meta": {
+      "title": "Preview Text Node"
+    }
+  }
+}

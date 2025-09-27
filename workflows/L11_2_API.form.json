@@ -1,0 +1,95 @@
+{
+  "name": "L11_2_API",
+  "fields": [
+    {
+      "name": "image_path",
+      "label": "输入图像",
+      "type": "file",
+      "default": "L11_2_输入.jpeg",
+      "allow_upload": true,
+      "accept": "image/*",
+      "file": {
+        "kind": "image",
+        "dirs": [
+          "assets/images",
+          "uploads"
+        ],
+        "extensions": [
+          ".jpeg",
+          ".jpg",
+          ".png",
+          ".webp"
+        ]
+      },
+      "help": "可从 assets/images 或 uploads 选择/上传"
+    },
+    {
+      "name": "question",
+      "label": "提问内容",
+      "type": "textarea",
+      "default": "Describe this image in detail."
+    },
+    {
+      "name": "seed",
+      "label": "随机种子",
+      "type": "integer",
+      "default": 189598427651861
+    },
+    {
+      "name": "temperature",
+      "label": "Temperature",
+      "type": "number",
+      "default": 0.1,
+      "step": 0.05
+    },
+    {
+      "name": "top_p",
+      "label": "Top P",
+      "type": "number",
+      "default": 0.95,
+      "step": 0.05
+    },
+    {
+      "name": "max_new_tokens",
+      "label": "最大输出 Token",
+      "type": "integer",
+      "default": 512
+    },
+    {
+      "name": "model_name",
+      "label": "模型",
+      "type": "text",
+      "default": "deepseek-ai/Janus-Pro-1B"
+    }
+  ],
+  "mapping": [
+    {
+      "path": "19.inputs.image",
+      "value": "$file:image_path"
+    },
+    {
+      "path": "25.inputs.question",
+      "value": "$question"
+    },
+    {
+      "path": "25.inputs.seed",
+      "value": "$seed"
+    },
+    {
+      "path": "25.inputs.temperature",
+      "value": "$temperature"
+    },
+    {
+      "path": "25.inputs.top_p",
+      "value": "$top_p"
+    },
+    {
+      "path": "25.inputs.max_new_tokens",
+      "value": "$max_new_tokens"
+    },
+    {
+      "path": "10.inputs.model_name",
+      "value": "$model_name"
+    }
+  ]
+}
