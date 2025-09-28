@@ -8,52 +8,163 @@
 </head>
 <body>
   <div class="wrap">
-  <div class="nav"><div class="brand">后台 · <b>服务器映射</b></div><a class="pill" href="/">返回</a></div>
-  <div class="card">
-  <p class="muted">为每个工作流配置 ComfyUI 服务器（支持 ngrok 动态地址），保存后立即生效。</p>
-  <table id="tbl">
-    <thead><tr><th>工作流</th><th>服务器地址</th><th>检查</th></tr></thead>
-    <tbody></tbody>
-  </table>
-  <div style="margin-top:10px"><button class="btn" id="btnSave">保存</button> <span id="msg" class="muted"></span></div>
-  </div>
+    <div class="nav">
+      <div class="brand">后台 · <b>服务器映射</b></div>
+      <a class="pill" href="/">返回</a>
+    </div>
+    <div class="card">
+      <p class="muted">为每个工作流配置 ComfyUI 服务器（支持 ngrok/Cloudflare 隧道等动态地址），保存后立即生效。</p>
+      <table id="tbl">
+        <thead>
+          <tr><th>工作流</th><th>服务器地址</th><th>检查</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div style="margin-top:10px">
+        <button class="btn" id="btnSave">保存</button>
+        <span id="msg" class="muted"></span>
+      </div>
+    </div>
   </div>
 
 <script>
-async function listWorkflows(){
-  const w = await (await fetch('/api/workflows')).json();
-  const map = await (await fetch('/api/admin/servers')).json();
-  const m = map.servers || {}; const set=new Set(Object.keys(m));
-  const tb = document.querySelector('#tbl tbody'); tb.innerHTML='';
-  (w.items||[]).forEach(it=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${it.workflow}</td><td><input value="${m[it.workflow]||''}" data-wf="${it.workflow}" /></td><td><button class="chk">检查</button> <span class="res"></span></td>`;
-    tb.appendChild(tr);
-  });
-  tb.querySelectorAll('.chk').forEach(btn=>{
-    btn.onclick = async (e)=>{
-      const tr = e.target.closest('tr');
-      const url = tr.querySelector('input').value.trim();
-      const span = tr.querySelector('.res'); span.textContent='...';
-      if(!url){ span.textContent='(空)'; return; }
-      const r = await fetch(空)server='+encodeURIComponent(url));
-      const j = await r.json();
-      if(j.ok){ span.textContent = '可用 '+j.latency_ms+'ms'; span.className='res ok'; }
-      else { span.textContent = '不可用  '+(j.error||''); span.className='res err'; }
+function createRow(workflow, server, opts){
+  const tbody = document.querySelector('#tbl tbody');
+  const tr = document.createElement('tr');
+  tr.dataset.workflow = workflow;
+
+  const nameCell = document.createElement('td');
+  nameCell.textContent = workflow;
+  if(opts && opts.note){
+    const note = document.createElement('span');
+    note.textContent = `（${opts.note}）`;
+    note.className = 'muted';
+    note.style.marginLeft = '6px';
+    nameCell.appendChild(note);
+  }
+  tr.appendChild(nameCell);
+
+  const inputCell = document.createElement('td');
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'https://example.ngrok.app';
+  input.value = server || '';
+  input.dataset.wf = workflow;
+  inputCell.appendChild(input);
+  tr.appendChild(inputCell);
+
+  const actionCell = document.createElement('td');
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn ghost chk';
+  btn.textContent = '检查';
+  const span = document.createElement('span');
+  span.className = 'res muted';
+  span.style.marginLeft = '8px';
+  btn.addEventListener('click', () => runCheck(input, span));
+  actionCell.appendChild(btn);
+  actionCell.appendChild(span);
+  tr.appendChild(actionCell);
+
+  tbody.appendChild(tr);
+}
+
+async function runCheck(input, target){
+  const url = (input.value || '').trim();
+  target.className = 'res muted';
+  if(!url){
+    target.textContent = '请输入地址';
+    return;
+  }
+  target.textContent = '检查中…';
+  try{
+    const resp = await fetch(`/api/health?server=${encodeURIComponent(url)}`);
+    const data = await resp.json();
+    if(resp.ok && data.ok){
+      const ms = typeof data.latency_ms === 'number' ? data.latency_ms : '?';
+      target.textContent = `可用 ${ms} ms`;
+      target.className = 'res ok';
+    }else{
+      target.textContent = `不可用 ${data.error || resp.statusText || ''}`;
+      target.className = 'res err';
     }
-  });
+  }catch(err){
+    target.textContent = `请求失败 ${err.message || err}`;
+    target.className = 'res err';
+  }
+}
+
+async function listWorkflows(){
+  const msg = document.getElementById('msg');
+  msg.textContent = '加载中…';
+  try{
+    const [wfResp, mapResp] = await Promise.all([
+      fetch('/api/workflows'),
+      fetch('/api/admin/servers')
+    ]);
+    const wfJson = await wfResp.json();
+    const mapJson = await mapResp.json();
+    const tbody = document.querySelector('#tbl tbody');
+    tbody.innerHTML = '';
+    const servers = (mapJson && mapJson.servers) || {};
+    const seen = new Set();
+    (wfJson.items || []).forEach(item => {
+      const wf = item.workflow;
+      seen.add(wf);
+      createRow(wf, servers[wf] || '');
+    });
+    Object.keys(servers).forEach(wf => {
+      if(!seen.has(wf)){
+        createRow(wf, servers[wf], {note: '未在工作流列表中'});
+      }
+    });
+    if(!tbody.children.length){
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 3;
+      td.className = 'muted';
+      td.textContent = '当前没有可配置的工作流。';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    }
+    msg.textContent = '';
+  }catch(err){
+    msg.textContent = `加载失败：${err.message || err}`;
+  }
 }
 
 async function save(){
-  const inputs = Array.from(document.querySelectorAll('#tbl tbody input'));
-  const servers = {}; inputs.forEach(i=>{ if(i.value.trim()) servers[i.dataset.wf]=i.value.trim(); });
-  const r = await fetch('/api/admin/servers', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({servers})});
-  const j = await r.json();
-  document.getElementById(空) '已保存': ('保存失败: '+(j.msg||''));
+  const msg = document.getElementById('msg');
+  msg.textContent = '保存中…';
+  try{
+    const inputs = Array.from(document.querySelectorAll('#tbl tbody input[data-wf]'));
+    const servers = {};
+    inputs.forEach(input => {
+      const value = (input.value || '').trim();
+      if(value){
+        servers[input.dataset.wf] = value;
+      }
+    });
+    const resp = await fetch('/api/admin/servers', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({servers})
+    });
+    const data = await resp.json();
+    if(resp.ok && data.ok){
+      msg.textContent = '已保存';
+    }else{
+      msg.textContent = `保存失败：${data.msg || resp.statusText || '未知错误'}`;
+    }
+  }catch(err){
+    msg.textContent = `保存失败：${err.message || err}`;
+  }
 }
 
-document.getElementById('btnSave').onclick = save;
-listWorkflows();
+document.getElementById('btnSave').addEventListener('click', save);
+listWorkflows().catch(err => {
+  document.getElementById('msg').textContent = `加载失败：${err.message || err}`;
+});
 </script>
 </body>
 </html>

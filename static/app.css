@@ -57,6 +57,8 @@ pre{background:#0b1324; border:1px solid var(--border); border-radius:12px; padd
 table{width:100%; border-collapse:collapse}
 th,td{border:1px solid var(--border); padding:10px}
 th{background:#0b1324; color:var(--muted); text-align:left}
+.res.ok{color:#5ee464;}
+.res.err{color:var(--danger);}
 
 /* gallery images */
 .thumb{max-width:200px; border-radius:10px; border:1px solid var(--border)}
