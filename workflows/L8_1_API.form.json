@@ -5,7 +5,7 @@
       "name": "positive",
       "label": "正面提示词",
       "type": "textarea",
-      "default": "\u0000\u0000\u0000\u0000chaloujiusi,scenery,standing,（red dressing 2.0）, architecture,plant,flower,lattice,tree,window,table,east asian architecture,long hair,black hair,wooden floor,scroll,multiple girls,multiple boys,potted plant,teapot,board game,book,indoors,sunlight,lantern,chair,garden,day,short hair,blue flower,vase,cup,chinese_hanfu_clothes,"
+      "default": "chaloujiusi,scenery,standing,（red dressing 2.0）, architecture,plant,flower,lattice,tree,window,table,east asian architecture,long hair,black hair,wooden floor,scroll,multiple girls,multiple boys,potted plant,teapot,board game,book,indoors,sunlight,lantern,chair,garden,day,short hair,blue flower,vase,cup,chinese_hanfu_clothes,"
     },
     {
       "name": "negative",
