@@ -1,8 +1,8 @@
 {
   "name": "L6_API",
   "fields": [
-    {"name": "positive", "label": "正面提示词", "type": "textarea", "default": ""},
-    {"name": "negative", "label": "负面提示词", "type": "textarea", "default": ""},
+    {"name": "positive", "label": "正面提示词", "type": "textarea", "default": "A single girl with long hair, large breasts, wearing a shirt, black hair, showing her navel and midriff, with a belt, pants, a mole, arms raised, a crop top, a tattoo, denim material, arms behind her head, and jeans, depicted in a realistic style."},
+    {"name": "negative", "label": "负面提示词", "type": "textarea", "default": "ng_deepnegative_v1_75t,(badhandv4:1.2),EasyNegative,(worst quality:2),animation,blur,deformation,disfigurement,low quality,collage,grainy,logo,abstract,illustration,computer-generated,distortion,poor anatomy,poor hands,missing fingers,poor feet,extra fingers,variant hands,poor proportions,extra limbs,extra fingers,abnormal limbs,missing arms,missing legs,extra arms,extra legs,mutated straps,fused yurts,too many fingers,the whole movement is uncoordinated,the picture is weird,the picture is slow,the dress is too bold and exposed,,nsfw"},
     {"name": "seed", "label": "随机种子", "type": "integer", "default": 1086072893879472},
     {"name": "steps", "label": "步数", "type": "integer", "default": 120},
     {"name": "cfg", "label": "CFG", "type": "number", "default": 7.5},

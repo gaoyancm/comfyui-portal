@@ -1,8 +1,8 @@
 {
   "name": "L7_API",
   "fields": [
-    {"name": "positive1", "label": "正面提示词1", "type": "textarea", "default": ""},
-    {"name": "positive2", "label": "正面提示词2", "type": "textarea", "default": ""},
+    {"name": "positive1", "label": "正面提示词1", "type": "textarea", "default": "office style, long-legged asian office lady, wearing hanfu, sitting pose, showing half of one thigh, 2k resolution, looking straight ahead"},
+    {"name": "positive2", "label": "正面提示词2", "type": "textarea", "default": "candid photo,ultra realistic"},
     {"name": "seed", "label": "随机种子", "type": "integer", "default": 596944321147751},
     {"name": "steps", "label": "步数", "type": "integer", "default": 25},
     {"name": "cfg", "label": "CFG", "type": "number", "default": 1.2},

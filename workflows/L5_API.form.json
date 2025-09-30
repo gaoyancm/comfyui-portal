@@ -1,9 +1,9 @@
 {
   "name": "L5_API",
   "fields": [
-    {"name": "positive1", "label": "正面提示词1", "type": "textarea", "default": ""},
-    {"name": "positive2", "label": "正面提示词2", "type": "textarea", "default": ""},
-    {"name": "negative", "label": "负面提示词", "type": "textarea", "default": ""},
+    {"name": "positive1", "label": "正面提示词1", "type": "textarea", "default": "Her face is delicate and confident, with a pair of bright almond eyes looking straight ahead, her eyes are firm and steady. The corners of her eyes are slightly raised, revealing a hint of sharpness and shrewdness. Her eyebrows are naturally curved and well-groomed, highlighting her rational temperament. Her lips are painted with rich red lipstick, with clear contours, showing the decisiveness and charm of a professional woman. Her long black and smooth wavy hair looks shiny and full under the soft light indoors, which complements her overall image. She wears a dark gray professional suit with a neat cut and a miniskirt, revealing her slender white thighs, outlining her capable and elegant figure. She sits cross-legged, dignified and generous, revealing calmness and confidence."},
+    {"name": "positive2", "label": "正面提示词2", "type": "textarea", "default": "The scene is set in a corner of a modern office space, with a light-colored wooden wall as the background, giving it a warm and professional feel. The large window on one side lets in natural light, adding a soft and bright atmosphere to the entire environment. She sits on a gray-blue cushioned chair, which is simple in design but textured, perfectly setting off her professional style. The overall space is simple and orderly, revealing an efficient and quiet office atmosphere. She sits naturally and faces the camera calmly and calmly, as if she is waiting for an important conversation or interview. The whole picture shows the confidence and professionalism of an urban woman in the workplace."},
+    {"name": "negative", "label": "负面提示词", "type": "textarea", "default": "low quality, blurry, cartoon, anime, unrealistic, bad hands, bad anatomy, lowres, jpeg artifacts, watermark, nsfw"},
     {"name": "steps", "label": "步数", "type": "integer", "default": 25, "min": 1},
     {"name": "guidance", "label": "Guidance", "type": "number", "default": 3.5},
     {"name": "sampler_name", "label": "采样器", "type": "select", "options": ["euler", "euler_a", "dpmpp_2m", "dpmpp_2m_sde", "ddim"], "default": "euler"},

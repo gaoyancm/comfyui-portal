@@ -1,8 +1,8 @@
 {
   "name": "L4_API",
   "fields": [
-    {"name": "positive", "label": "正面提示词", "type": "textarea", "default": ""},
-    {"name": "negative", "label": "负面提示词", "type": "textarea", "default": ""},
+    {"name": "positive", "label": "正面提示词", "type": "textarea", "default": "beautiful scenery nature glass bottle landscape, , purple galaxy bottle,"},
+    {"name": "negative", "label": "负面提示词", "type": "textarea", "default": "text, watermark"},
     {"name": "seed", "label": "随机种子", "type": "integer", "default": 0},
     {"name": "steps", "label": "步数", "type": "integer", "default": 20, "min": 1},
     {"name": "cfg", "label": "CFG", "type": "number", "default": 7.0, "min": 0},
