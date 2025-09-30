@@ -350,7 +350,7 @@ def get_workflow_form(wf):
                     _prepare_file_field(field)
             return jsonify({"ok": True, "form": form_data})
         except Exception as e:
-            return jsonify({"ok": False, "msg": f"??????: {e}"}), 400
+            return jsonify({"ok": False, "msg": f"读取表单失败: {e}"}), 400
     return jsonify({"ok": True, "form": {"name": base, "fields": [], "mapping": []}})
 
 
@@ -365,10 +365,10 @@ def create_job():
         try:
             overrides = json.loads(overrides_text)
         except Exception:
-            return jsonify({"ok": False, "msg": "overrides ?? JSON"}), 400
+            return jsonify({"ok": False, "msg": "overrides 不是合法 JSON"}), 400
     wf_path = os.path.join(PROJECT_ROOT, "workflows", wf)
     if not os.path.isfile(wf_path):
-        return jsonify({"ok": False, "msg": f"?????? {wf}"}), 404
+        return jsonify({"ok": False, "msg": f"未找到工作流 {wf}"}), 404
 
     upload_dir = current_app.config["UPLOAD_DIR"]
     os.makedirs(upload_dir, exist_ok=True)

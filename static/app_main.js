@@ -18,11 +18,14 @@ function renderField(container, f){
 
     const existingMap = new Map();
     let select = null;
+    const fileSpec = f.file || {};
+    const fileKind = fileSpec.kind || 'image';
+
     if(Array.isArray(f.file_existing) && f.file_existing.length){
       select = document.createElement('select');
       const placeholder = document.createElement('option');
       placeholder.value = '';
-      placeholder.textContent = '??????';
+      placeholder.textContent = '请选择文件';
       select.appendChild(placeholder);
       f.file_existing.forEach(opt => {
         const option = document.createElement('option');
@@ -68,30 +71,79 @@ function renderField(container, f){
 
     const info = document.createElement('div');
     info.className = 'muted';
+    const previewBox = document.createElement('div');
+    previewBox.className = 'file-preview';
+    previewBox.style.display = 'none';
+
+    const revokePreviewUrl = () => {
+      if(previewBox.dataset.url){
+        URL.revokeObjectURL(previewBox.dataset.url);
+        delete previewBox.dataset.url;
+      }
+    };
+
+    const updatePreview = (val) => {
+      revokePreviewUrl();
+      previewBox.innerHTML = '';
+      if(!val || fileKind !== 'image'){
+        previewBox.style.display = 'none';
+        return;
+      }
+      if(val.startsWith('upload://') && fileInput && fileInput.files && fileInput.files.length){
+        const file = fileInput.files[0];
+        if(file && file.type && file.type.startsWith('image/')){
+          const url = URL.createObjectURL(file);
+          const img = document.createElement('img');
+          img.src = url;
+          img.alt = file.name || '';
+          img.className = 'file-preview-img';
+          previewBox.appendChild(img);
+          previewBox.style.display = '';
+          previewBox.dataset.url = url;
+        }else{
+          previewBox.style.display = 'none';
+        }
+        return;
+      }
+      const existing = (f.file_existing || []).find(opt => opt.value === val);
+      if(existing && existing.preview){
+        const img = document.createElement('img');
+        img.src = existing.preview;
+        img.alt = existing.label || '';
+        img.className = 'file-preview-img';
+        previewBox.appendChild(img);
+        previewBox.style.display = '';
+        return;
+      }
+      previewBox.style.display = 'none';
+    };
     const refreshInfo = () => {
       const val = hidden.value;
       if(!val){
-        info.textContent = '???';
+        info.textContent = '未选择文件';
       }else if(existingMap.has(val)){
-        info.textContent = `???${existingMap.get(val)}`;
+        info.textContent = `已选择库文件：${existingMap.get(val)}`;
       }else if(val.startsWith('upload://')){
-        info.textContent = `????${val.slice('upload://'.length)}`;
+        info.textContent = `将上传本地文件：${val.slice('upload://'.length)}`;
       }else{
         info.textContent = val;
       }
+      updatePreview(val);
     };
     refreshInfo();
     wrap.appendChild(info);
+    wrap.appendChild(previewBox);
 
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button';
     clearBtn.className = 'btn ghost';
-    clearBtn.textContent = '??';
+    clearBtn.textContent = '清除';
     clearBtn.style.marginTop = '6px';
     clearBtn.addEventListener('click', () => {
       if(select){ select.value = ''; }
       if(fileInput){ fileInput.value = ''; }
       hidden.value = '';
+      revokePreviewUrl();
       refreshInfo();
     });
     wrap.appendChild(clearBtn);
