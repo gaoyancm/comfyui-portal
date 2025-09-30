@@ -1,0 +1,127 @@
+{
+  "name": "L10_API",
+  "fields": [
+    {
+      "name": "text",
+      "label": "提示文本",
+      "type": "textarea",
+      "default": "把服装换瑜伽服"
+    },
+    {
+      "name": "out_language",
+      "label": "目标语言",
+      "type": "text",
+      "default": "英文"
+    },
+    {
+      "name": "temperature",
+      "label": "随机性（温度）",
+      "type": "number",
+      "default": 1.3,
+      "step": 0.1,
+      "min": 0,
+      "max": 2
+    },
+    {
+      "name": "steps",
+      "label": "步数",
+      "type": "integer",
+      "default": 20
+    },
+    {
+      "name": "cfg",
+      "label": "CFG",
+      "type": "number",
+      "default": 1
+    },
+    {
+      "name": "seed",
+      "label": "随机种子",
+      "type": "integer",
+      "default": 1011296598101152
+    },
+    {
+      "name": "sampler_name",
+      "label": "采样器",
+      "type": "select",
+      "default": "euler",
+      "options": [
+        "euler",
+        "euler_a",
+        "dpmpp_2m",
+        "dpmpp_3m_sde_gpu",
+        "ddim"
+      ]
+    },
+    {
+      "name": "scheduler",
+      "label": "调度器",
+      "type": "select",
+      "default": "simple",
+      "options": [
+        "simple",
+        "exponential",
+        "normal",
+        "karras",
+        "ddim_uniform"
+      ]
+    },
+    {
+      "name": "denoise",
+      "label": "降噪强度",
+      "type": "number",
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "name": "filename_prefix",
+      "label": "保存前缀",
+      "type": "text",
+      "default": "ComfyUI"
+    }
+  ],
+  "mapping": [
+    {
+      "path": "198.inputs.text",
+      "value": "$text"
+    },
+    {
+      "path": "198.inputs.out_language",
+      "value": "$out_language"
+    },
+    {
+      "path": "198.inputs.temperature",
+      "value": "$temperature"
+    },
+    {
+      "path": "31.inputs.steps",
+      "value": "$steps"
+    },
+    {
+      "path": "31.inputs.cfg",
+      "value": "$cfg"
+    },
+    {
+      "path": "31.inputs.seed",
+      "value": "$seed"
+    },
+    {
+      "path": "31.inputs.sampler_name",
+      "value": "$sampler_name"
+    },
+    {
+      "path": "31.inputs.scheduler",
+      "value": "$scheduler"
+    },
+    {
+      "path": "31.inputs.denoise",
+      "value": "$denoise"
+    },
+    {
+      "path": "136.inputs.filename_prefix",
+      "value": "$filename_prefix"
+    }
+  ]
+}
