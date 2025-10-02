@@ -12,6 +12,33 @@ _jobs = {}  # job_id -> {status, progress, prompt_id, outputs:[], error, wf_path
 _flask_app = None  # set via attach_app(app)
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
 
+# Allowlisted local preview directories
+ALLOWED_PREVIEW_DIRS = {
+    "uploads": os.path.join(PROJECT_ROOT, "uploads"),
+    "assets/images": os.path.join(PROJECT_ROOT, "assets", "images"),
+    "assets/audio": os.path.join(PROJECT_ROOT, "assets", "audio"),
+}
+
+@jobs_bp.get("/assets/preview")
+def preview_local_asset():
+    """Preview local asset from uploads or assets (images/audio)."""
+    d = request.args.get("dir", "")
+    name = request.args.get("name", "")
+    root = ALLOWED_PREVIEW_DIRS.get(d)
+    if not root or not name:
+        return jsonify({"ok": False, "msg": "bad params"}), 400
+    # Normalize and prevent path traversal
+    p = os.path.normpath(os.path.join(root, name))
+    try:
+        base = os.path.commonpath([root, p])
+    except Exception:
+        return jsonify({"ok": False, "msg": "bad path"}), 400
+    if base != root or not os.path.isfile(p):
+        return jsonify({"ok": False, "msg": "not found"}), 404
+    mt, _ = mimetypes.guess_type(p)
+    return send_file(p, mimetype=mt or "application/octet-stream")
+
+
 
 def login_required(fn):
     @wraps(fn)
@@ -104,7 +131,7 @@ def _prepare_file_field(field):
                 continue
             if extensions and not any(entry.lower().endswith(ext) for ext in extensions):
                 continue
-            existing.append({'label': entry, 'value': f'existing://{idx}/{entry}'})
+            existing.append({'label': entry, 'value': f'existing://{idx}/{entry}', 'preview': f"/api/assets/preview?dir={rel_dir}&name={entry}"})
     if existing:
         field['file_existing'] = existing
     if spec.get('accept') and 'accept' not in field:
@@ -330,13 +357,11 @@ def _list_workflows_impl():
 
 
 @jobs_bp.get("/workflows")
-@login_required
 def list_workflows_api():
     return jsonify({"ok": True, "items": _list_workflows_impl()})
 
 
 @jobs_bp.get("/workflows/<wf>/form")
-@login_required
 def get_workflow_form(wf):
     root = os.path.join(PROJECT_ROOT, "workflows")
     base = os.path.splitext(wf)[0]
@@ -355,7 +380,6 @@ def get_workflow_form(wf):
 
 
 @jobs_bp.post("/jobs")
-@login_required
 def create_job():
     wf = request.form.get("workflow") or request.args.get("workflow") or "default.json"
     use_form = (request.form.get("form_mode") == "1")
@@ -461,7 +485,6 @@ def create_job():
 
 
 @jobs_bp.get("/jobs/<job_id>/status")
-@login_required
 def job_status(job_id):
     j = _jobs.get(job_id)
     if not j:
@@ -470,13 +493,11 @@ def job_status(job_id):
 
 
 @jobs_bp.get("/queue")
-@login_required
 def queue_overview():
     return jsonify({"ok": True, "queued": _task_q.qsize()})
 
 
 @jobs_bp.get("/comfy/view")
-@login_required
 def proxy_view():
     from flask import Response
     filename = request.args.get("filename"); subfolder = request.args.get("subfolder","" ); typ = request.args.get("type","output")
@@ -490,7 +511,6 @@ def proxy_view():
 
 
 @jobs_bp.get("/jobs/<job_id>/comfy/view")
-@login_required
 def job_proxy_view(job_id):
     # Image preview that respects the server used by the specific job
     from flask import Response
@@ -508,7 +528,6 @@ def job_proxy_view(job_id):
 
 
 @jobs_bp.get("/jobs/<job_id>/artifacts")
-@login_required
 def job_artifacts(job_id):
     j = _jobs.get(job_id)
     if not j:
@@ -517,7 +536,6 @@ def job_artifacts(job_id):
 
 
 @jobs_bp.get("/jobs")
-@login_required
 def list_jobs():
     # return light-weight summaries
     limit = int(request.args.get("limit", 100))
@@ -538,7 +556,6 @@ def list_jobs():
 
 
 @jobs_bp.get("/jobs/<job_id>/download")
-@login_required
 def download_single(job_id):
     j = _jobs.get(job_id)
     if not j:
@@ -561,7 +578,6 @@ def download_single(job_id):
 
 
 @jobs_bp.get("/jobs/<job_id>/download.zip")
-@login_required
 def download_zip(job_id):
     j = _jobs.get(job_id)
     if not j:
@@ -587,7 +603,6 @@ def download_zip(job_id):
 
 
 @jobs_bp.get("/health")
-@login_required
 def health():
     server = (request.args.get("server") or _resolve_server_default()).rstrip('/')
     t0 = time.time()
