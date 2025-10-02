@@ -31,3 +31,7 @@ app/jobs2_old.py
 static/app_main_old.js
 tmp/
 
+
+# local backups
+app/jobs2.py.bak.*
+
