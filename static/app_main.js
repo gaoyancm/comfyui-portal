@@ -168,7 +168,7 @@ function renderField(container, f){
     case 'number':
     case 'integer':
       input = document.createElement('input');
-      input.type = 'number';
+      input.type = 'number'; input.step = 'any'; input.inputMode = 'decimal';
       if(f.min !== undefined) input.min = f.min;
       if(f.max !== undefined) input.max = f.max;
       if(f.step !== undefined) input.step = f.step;
