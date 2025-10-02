@@ -25,3 +25,9 @@ active_sessions.json
 users.csv
 uploads/
 results/
+
+# local backups
+app/jobs2_old.py
+static/app_main_old.js
+tmp/
+
