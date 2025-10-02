@@ -3,6 +3,7 @@ import os, uuid, threading, queue, time, json, requests, re
 from functools import wraps
 import io, zipfile
 from datetime import datetime
+from PIL import Image
 
 jobs_bp = Blueprint("jobs", __name__)
 
@@ -252,28 +253,63 @@ def _comfy_url():
     return current_app.config["COMFY_URL"].rstrip('/')
 
 
-def _upload_to_comfy(file_path, kind='image'):
+def _upload_to_comfy(file_path, kind='image', comfy_base=None):
+    """
+    Upload local file to the selected Comfy server's input folder.
+    - Supports endpoints: /upload/image|audio|video
+    - Auto converts .webp to .png for compatibility
+    Returns: filename on Comfy side
+    """
+    import io as _io, os as _os, requests as _requests
+
+    if comfy_base is None:
+        comfy_base = _comfy_url()
+
     endpoint = 'image'
     field = 'image'
     if kind == 'audio':
-        endpoint = 'audio'
-        field = 'audio'
+        endpoint = 'audio'; field = 'audio'
     elif kind == 'video':
-        endpoint = 'video'
-        field = 'video'
-    url = f"{_comfy_url()}/upload/{endpoint}"
-    try:
-        with open(file_path, 'rb') as fp:
-            r = requests.post(url, files={field: (os.path.basename(file_path), fp)}, timeout=120)
-        if r.status_code == 200 and r.headers.get('content-type', '').startswith('application/json'):
-            data = r.json()
-            name = data.get('name') or data.get('filename')
-            if name:
-                return name
-    except Exception:
-        pass
-    return os.path.basename(file_path)
+        endpoint = 'video'; field = 'video'
 
+    basename = _os.path.basename(file_path)
+    ext = _os.path.splitext(basename)[1].lower()
+
+    fp = None
+    try:
+        # WEBP -> PNG
+        if kind == 'image' and ext == '.webp':
+            with open(file_path, 'rb') as _fp_raw:
+                _raw = _fp_raw.read()
+            _img = Image.open(_io.BytesIO(_raw)).convert('RGBA')
+            _buf = _io.BytesIO()
+            _img.save(_buf, format='PNG')
+            _buf.seek(0)
+            newname = _os.path.splitext(basename)[0] + '.png'
+            files = {field: (newname, _buf, 'image/png')}
+        else:
+            fp = open(file_path, 'rb')
+            files = {field: (basename, fp)}
+
+        url = f"{comfy_base}/upload/{endpoint}"
+        r = _requests.post(url, files=files, data={'type':'input','subfolder':''}, timeout=120)
+
+        # 更可读的错误：必须 JSON
+        if r.status_code != 200 or not r.headers.get('content-type','').startswith('application/json'):
+            raise RuntimeError(f"Non-JSON from {url}: status={r.status_code} ct={r.headers.get('content-type')} body_snip={r.text[:200]!r}")
+        data = r.json()
+        name = data.get('name') or data.get('filename')
+        if not name and isinstance(data.get('files'), list) and data['files']:
+            name = data['files'][0].get('filename') or data['files'][0].get('name')
+        if name:
+            return name
+        raise RuntimeError(f"Unexpected /upload response: {data}")
+    finally:
+        try:
+            if fp and not fp.closed:
+                fp.close()
+        except Exception:
+            pass
 
 def _run_job(job_id):
     j = _jobs[job_id]
@@ -291,7 +327,7 @@ def _run_job(job_id):
         for meta in ov.get("_uploads", []):
             # meta: {field, name, path, kind}
             kind = meta.get('kind') or _guess_file_kind(meta.get('name'))
-            comfy_name = _upload_to_comfy(meta.get("path"), kind)
+            comfy_name = _upload_to_comfy(meta.get("path"), kind, comfy_base=comfy)
             upload_map[meta.get("field")] = comfy_name
         prompt_json = _apply_form_mapping(prompt_json, mapping, form_values, upload_map)
     else:
