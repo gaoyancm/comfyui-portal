@@ -3,6 +3,7 @@ import pandas as pd
 import hashlib
 import os
 import csv
+import json
 from datetime import datetime
 
 auth_bp = Blueprint("auth", __name__)
@@ -10,8 +11,23 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 EXCEL_PATH = os.path.join(BASE_DIR, "users.xlsx")
 CSV_PATH = os.path.join(BASE_DIR, os.environ.get("USERS_CSV", "users.csv"))
 
-ACTIVE_SESSIONS = {}
+SESSIONS_FILE = os.path.join(BASE_DIR, "active_sessions.json")
 INACTIVITY_SECONDS = 30 * 60
+
+
+def load_active_sessions():
+    try:
+        with open(SESSIONS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_active_sessions(sessions):
+    tmp = SESSIONS_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(sessions, f)
+    os.replace(tmp, SESSIONS_FILE)
 
 
 @auth_bp.before_app_request
@@ -20,14 +36,18 @@ def _enforce_single_session():
     sid = session.get("sid")
     if not u or not sid:
         return
-    rec = ACTIVE_SESSIONS.get(u)
+    sessions = load_active_sessions()
+    rec = sessions.get(u)
     now = datetime.utcnow().timestamp()
     if not rec or rec.get("sid") != sid or now - rec.get("last_seen", 0) > INACTIVITY_SECONDS:
         if rec and now - rec.get("last_seen", 0) > INACTIVITY_SECONDS:
-            ACTIVE_SESSIONS.pop(u, None)
+            sessions.pop(u, None)
+            save_active_sessions(sessions)
         session.clear()
         return
     rec["last_seen"] = now
+    sessions[u] = rec
+    save_active_sessions(sessions)
 
 
 def _parse_dt(val):
@@ -104,18 +124,23 @@ def login():
         return jsonify({"ok": False, "msg": "密码已过期"}), 401
     if hashlib.sha256(p.encode()).hexdigest() != info["password_hash"]:
         return jsonify({"ok": False, "msg": "密码错误"}), 401
-    import secrets, time
 
+    import secrets, time
     now = time.time()
-    rec = ACTIVE_SESSIONS.get(u)
+    sessions = load_active_sessions()
+    rec = sessions.get(u)
     if rec and now - rec.get("last_seen", 0) <= INACTIVITY_SECONDS:
         return jsonify({"ok": False, "msg": "该账号已在其他位置登录"}), 409
+
     sid = secrets.token_urlsafe(24)
     session.permanent = True
     session["user"] = u
     session["sid"] = sid
-    ACTIVE_SESSIONS[u] = {"sid": sid, "last_seen": now}
     session["role"] = info.get("role", "user")
+
+    sessions[u] = {"sid": sid, "last_seen": now}
+    save_active_sessions(sessions)
+
     return jsonify({"ok": True, "user": u, "role": session["role"]})
 
 
@@ -131,8 +156,10 @@ def status():
 def logout():
     u = session.get("user")
     sid = session.get("sid")
-    rec = ACTIVE_SESSIONS.get(u)
+    sessions = load_active_sessions()
+    rec = sessions.get(u)
     if rec and rec.get("sid") == sid:
-        ACTIVE_SESSIONS.pop(u, None)
+        sessions.pop(u, None)
+        save_active_sessions(sessions)
     session.clear()
     return jsonify({"ok": True})

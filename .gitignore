@@ -20,3 +20,8 @@ results/
 .vscode/
 .idea/
 
+active_sessions.json
+.env
+users.csv
+uploads/
+results/
