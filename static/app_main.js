@@ -85,36 +85,76 @@ function renderField(container, f){
     const updatePreview = (val) => {
       revokePreviewUrl();
       previewBox.innerHTML = '';
-      if(!val || fileKind !== 'image'){
+      if(!val){
         previewBox.style.display = 'none';
         return;
       }
-      if(val.startsWith('upload://') && fileInput && fileInput.files && fileInput.files.length){
-        const file = fileInput.files[0];
-        if(file && file.type && file.type.startsWith('image/')){
-          const url = URL.createObjectURL(file);
+
+      if(fileKind === 'image'){
+        if(val.startsWith('upload://') && fileInput && fileInput.files && fileInput.files.length){
+          const file = fileInput.files[0];
+          if(file && file.type && file.type.startsWith('image/')){
+            const url = URL.createObjectURL(file);
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = file.name || '';
+            img.className = 'file-preview-img';
+            previewBox.appendChild(img);
+            previewBox.style.display = '';
+            previewBox.dataset.url = url;
+          }else{
+            previewBox.style.display = 'none';
+          }
+          return;
+        }
+        const existing = (f.file_existing || []).find(opt => opt.value === val);
+        if(existing && existing.preview){
           const img = document.createElement('img');
-          img.src = url;
-          img.alt = file.name || '';
+          img.src = existing.preview;
+          img.alt = existing.label || '';
           img.className = 'file-preview-img';
           previewBox.appendChild(img);
           previewBox.style.display = '';
-          previewBox.dataset.url = url;
-        }else{
-          previewBox.style.display = 'none';
+          return;
         }
+        previewBox.style.display = 'none';
         return;
       }
-      const existing = (f.file_existing || []).find(opt => opt.value === val);
-      if(existing && existing.preview){
-        const img = document.createElement('img');
-        img.src = existing.preview;
-        img.alt = existing.label || '';
-        img.className = 'file-preview-img';
-        previewBox.appendChild(img);
-        previewBox.style.display = '';
+
+      if(fileKind === 'audio'){
+        const buildAudio = (src, label) => {
+          const audio = document.createElement('audio');
+          audio.controls = true;
+          audio.preload = 'none';
+          audio.src = src;
+          audio.className = 'file-preview-audio';
+          if(label){ audio.setAttribute('aria-label', label); }
+          previewBox.appendChild(audio);
+          previewBox.style.display = '';
+        };
+
+        if(val.startsWith('upload://') && fileInput && fileInput.files && fileInput.files.length){
+          const file = fileInput.files[0];
+          if(file && file.type && file.type.startsWith('audio/')){
+            const url = URL.createObjectURL(file);
+            buildAudio(url, file.name || '');
+            previewBox.dataset.url = url;
+          }else{
+            previewBox.style.display = 'none';
+          }
+          return;
+        }
+
+        const existing = (f.file_existing || []).find(opt => opt.value === val);
+        if(existing && existing.preview){
+          buildAudio(existing.preview, existing.label || '');
+          return;
+        }
+
+        previewBox.style.display = 'none';
         return;
       }
+
       previewBox.style.display = 'none';
     };
     const refreshInfo = () => {

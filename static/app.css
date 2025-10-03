@@ -68,3 +68,4 @@ th{background:#0b1324; color:var(--muted); text-align:left}
 .field-file .btn{margin-top:6px;}
 .field-file .file-preview{margin-top:8px;}
 .field-file .file-preview-img{max-width:240px; border-radius:10px; border:1px solid var(--border); display:block;}
+.field-file .file-preview-audio{width:100%; max-width:260px; display:block;}
