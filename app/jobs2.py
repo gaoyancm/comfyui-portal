@@ -395,6 +395,7 @@ def _run_job(job_id):
     # poll history
     deadline = time.time() + 600
     outputs = []
+    file_outputs = []  # 记录可下载产物，用于 ZIP
     while time.time() < deadline:
         try:
             h = requests.get(f"{comfy}/history/{prompt_id}", timeout=30)
@@ -423,11 +424,49 @@ def _run_job(job_id):
         outs = item.get("outputs") or {}
         for node_out in outs.values():
             for img in node_out.get("images", []):
-                outputs.append({
+                artifact = {
+                    "kind": "image",
                     "filename": img.get("filename"),
                     "subfolder": img.get("subfolder", ""),
                     "type": img.get("type", "output")
-                })
+                }
+                outputs.append(artifact)
+                file_outputs.append(artifact)
+
+            for audio in node_out.get("audio", []):
+                artifact = {
+                    "kind": "audio",
+                    "filename": audio.get("filename"),
+                    "subfolder": audio.get("subfolder", ""),
+                    "type": audio.get("type", "output"),
+                    "format": audio.get("format") or audio.get("mime", "")
+                }
+                outputs.append(artifact)
+                file_outputs.append(artifact)
+
+            for file_item in node_out.get("files", []):
+                artifact = {
+                    "kind": file_item.get("kind") or "file",
+                    "filename": file_item.get("filename"),
+                    "subfolder": file_item.get("subfolder", ""),
+                    "type": file_item.get("type", "output"),
+                }
+                outputs.append(artifact)
+                file_outputs.append(artifact)
+
+            for text_item in node_out.get("text", []):
+                if isinstance(text_item, dict):
+                    content = text_item.get("text") or text_item.get("content") or ""
+                    extra = {k: v for k, v in text_item.items() if k not in {"text", "content"}}
+                else:
+                    content = str(text_item)
+                    extra = {}
+                if content:
+                    artifact = {"kind": "text", "text": content}
+                    if extra:
+                        artifact.update({"meta": extra})
+                    outputs.append(artifact)
+
         if outputs:
             break
         if not _apply_history_progress(j, item):
@@ -435,7 +474,7 @@ def _run_job(job_id):
         time.sleep(1)
     if not outputs:
         j.update(status="timeout", progress=100, done_at=time.time()); return
-    j.update(status="finished", progress=100, outputs=outputs, done_at=time.time())
+    j.update(status="finished", progress=100, outputs=outputs, done_at=time.time(), file_outputs=file_outputs)
 
 
 def _list_workflows_impl():
@@ -679,7 +718,7 @@ def download_zip(job_id):
     j = _jobs.get(job_id)
     if not j:
         return jsonify({"ok": False, "msg": "不存在的任务"}), 404
-    artifacts = j.get("outputs", [])
+    artifacts = j.get("file_outputs") or [a for a in j.get("outputs", []) if a.get("filename")]
     if not artifacts:
         return jsonify({"ok": False, "msg": "该任务没有可下载的产物"}), 400
     comfy = j.get("comfy_url") or _comfy_url()
