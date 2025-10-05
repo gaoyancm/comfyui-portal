@@ -11,7 +11,10 @@
   <div class="nav"><div class="brand">ComfyUI Portal · <b>任务历史</b></div><a class="pill" href="/">返回</a></div>
   <div class="card">
   <div class="muted" id="userbar" style="margin-bottom:8px"></div>
-  <div style="margin:8px 0"><button class="btn" id="btnRefresh">刷新</button></div>
+  <div style="margin:8px 0; display:flex; gap:8px; align-items:center;">
+    <button class="btn" id="btnRefresh">刷新</button>
+    <div class="muted" id="msg" aria-live="polite"></div>
+  </div>
   <table id="tbl">
     <thead>
       <tr>
@@ -30,13 +33,32 @@
   </div>
 
 <script>
-const $ = s=>document.querySelector(s);
-function ts(t){ if(!t) return ''; const d=new Date(t*1000); return d.toLocaleString(); }
-async function authBar(){ const r=await fetch('/auth/status'); if(r.status===401){ location.href='/login'; return; } const j=await r.json(); $('#userbar').textContent=`已登录：${j.user||''}`; }
-async function load(){
-  const r = await fetch('/api/jobs'); const j = await r.json();
-  const tb = $('#tbl tbody'); tb.innerHTML='';
-  (j.items||[]).forEach(it=>{
+const $ = s => document.querySelector(s);
+function ts(t){ if(!t) return ''; const d = new Date(t * 1000); return d.toLocaleString(); }
+async function authBar(){
+  const r = await fetch('/auth/status');
+  if(r.status === 401){ location.href = '/login'; return; }
+  const j = await r.json();
+  $('#userbar').textContent = `已登录：${j.user||''}`;
+}
+
+let lastItems = [];
+
+function render(items){
+  const tb = $('#tbl tbody');
+  tb.innerHTML = '';
+  if(!items.length){
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 7;
+    td.className = 'muted';
+    td.textContent = '暂无历史任务';
+    tr.appendChild(td);
+    tb.appendChild(tr);
+    return;
+  }
+
+  items.forEach(it => {
     const tr = document.createElement('tr');
     const dlZip = `/api/jobs/${it.job_id}/download.zip`;
     const viewStatus = `/api/jobs/${it.job_id}/status`;
@@ -52,8 +74,36 @@ async function load(){
     tb.appendChild(tr);
   });
 }
+
+async function load(){
+  const msg = $('#msg');
+  msg.textContent = '';
+  try{
+    const url = `/api/jobs?ts=${Date.now()}`;
+    const r = await fetch(url, {cache:'no-store'});
+    if(!r.ok){
+      throw new Error(`请求失败：${r.status}`);
+    }
+    const j = await r.json();
+    const items = Array.isArray(j.items) ? j.items : [];
+    lastItems = items;
+    render(items);
+    msg.textContent = `共 ${items.length} 条记录`;
+  }catch(err){
+    console.error(err);
+    if(lastItems.length){
+      render(lastItems);
+    }else{
+      render([]);
+    }
+    msg.textContent = '无法读取最新历史记录，请稍后重试';
+  }
+}
+
 $('#btnRefresh').addEventListener('click', load);
-authBar(); load();
+authBar();
+render(lastItems);
+load();
 </script>
 </body>
 </html>
