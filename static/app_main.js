@@ -1,6 +1,15 @@
 // ComfyUI Portal main page logic
 const $ = (s)=>document.querySelector(s);
 
+function escapeHtml(str){
+  return (str ?? '').toString()
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function renderField(container, f){
   const wrap = document.createElement('div');
   wrap.className = 'field';
@@ -85,36 +94,76 @@ function renderField(container, f){
     const updatePreview = (val) => {
       revokePreviewUrl();
       previewBox.innerHTML = '';
-      if(!val || fileKind !== 'image'){
+      if(!val){
         previewBox.style.display = 'none';
         return;
       }
-      if(val.startsWith('upload://') && fileInput && fileInput.files && fileInput.files.length){
-        const file = fileInput.files[0];
-        if(file && file.type && file.type.startsWith('image/')){
-          const url = URL.createObjectURL(file);
+
+      if(fileKind === 'image'){
+        if(val.startsWith('upload://') && fileInput && fileInput.files && fileInput.files.length){
+          const file = fileInput.files[0];
+          if(file && file.type && file.type.startsWith('image/')){
+            const url = URL.createObjectURL(file);
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = file.name || '';
+            img.className = 'file-preview-img';
+            previewBox.appendChild(img);
+            previewBox.style.display = '';
+            previewBox.dataset.url = url;
+          }else{
+            previewBox.style.display = 'none';
+          }
+          return;
+        }
+        const existing = (f.file_existing || []).find(opt => opt.value === val);
+        if(existing && existing.preview){
           const img = document.createElement('img');
-          img.src = url;
-          img.alt = file.name || '';
+          img.src = existing.preview;
+          img.alt = existing.label || '';
           img.className = 'file-preview-img';
           previewBox.appendChild(img);
           previewBox.style.display = '';
-          previewBox.dataset.url = url;
-        }else{
-          previewBox.style.display = 'none';
+          return;
         }
+        previewBox.style.display = 'none';
         return;
       }
-      const existing = (f.file_existing || []).find(opt => opt.value === val);
-      if(existing && existing.preview){
-        const img = document.createElement('img');
-        img.src = existing.preview;
-        img.alt = existing.label || '';
-        img.className = 'file-preview-img';
-        previewBox.appendChild(img);
-        previewBox.style.display = '';
+
+      if(fileKind === 'audio'){
+        const buildAudio = (src, label) => {
+          const audio = document.createElement('audio');
+          audio.controls = true;
+          audio.preload = 'none';
+          audio.src = src;
+          audio.className = 'file-preview-audio';
+          if(label){ audio.setAttribute('aria-label', label); }
+          previewBox.appendChild(audio);
+          previewBox.style.display = '';
+        };
+
+        if(val.startsWith('upload://') && fileInput && fileInput.files && fileInput.files.length){
+          const file = fileInput.files[0];
+          if(file && file.type && file.type.startsWith('audio/')){
+            const url = URL.createObjectURL(file);
+            buildAudio(url, file.name || '');
+            previewBox.dataset.url = url;
+          }else{
+            previewBox.style.display = 'none';
+          }
+          return;
+        }
+
+        const existing = (f.file_existing || []).find(opt => opt.value === val);
+        if(existing && existing.preview){
+          buildAudio(existing.preview, existing.label || '');
+          return;
+        }
+
+        previewBox.style.display = 'none';
         return;
       }
+
       previewBox.style.display = 'none';
     };
     const refreshInfo = () => {
@@ -280,14 +329,33 @@ function bindPoll(){
         const show = (j.status==='queued' || j.status==='submitting' || j.status==='running');
         pw.style.display = show ? 'block' : 'none';
       }
-      if(j.ok && j.outputs){
-        const imgs = (j.outputs||[]).map(o=>{
-          const url = `/api/jobs/${id}/comfy/view?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;
-          const dl = `/api/jobs/${id}/download?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;
-          return `<div style=\"display:inline-block;text-align:center;margin:4px\"><img class=\"thumb\" style=\"max-width:180px;display:block\" src=\"${url}\" /><a href=\"${dl}\">下载</a></div>`
+      if(j.ok && Array.isArray(j.outputs) && j.outputs.length){
+        const outputs = j.outputs || [];
+        const fileOutputs = (j.file_outputs || outputs).filter(o => o && o.filename);
+        const parts = outputs.map(o => {
+          if(!o){ return ''; }
+          if(o.kind === 'text' && o.text){
+            return `<div class=\"artifact artifact-text\"><div class=\"artifact-caption\">文本输出</div><pre>${escapeHtml(o.text)}</pre></div>`;
+          }
+          if(o.kind === 'audio' && o.filename){
+            const url = `/api/jobs/${id}/comfy/view?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;
+            const dl = `/api/jobs/${id}/download?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;
+            return `<div class=\"artifact artifact-audio\"><div class=\"artifact-caption\">音频输出：${escapeHtml(o.filename || '')}</div><audio controls preload=\"none\" src=\"${url}\"></audio><div><a href=\"${dl}\">下载</a></div></div>`;
+          }
+          if(o.kind === 'image' && o.filename){
+            const url = `/api/jobs/${id}/comfy/view?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;
+            const dl = `/api/jobs/${id}/download?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;
+            return `<div class=\"artifact artifact-image\"><img class=\"thumb\" src=\"${url}\" alt=\"${escapeHtml(o.filename || '')}\" /><div><a href=\"${dl}\">下载</a></div></div>`;
+          }
+          if(o.filename){
+            const url = `/api/jobs/${id}/comfy/view?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;
+            const dl = `/api/jobs/${id}/download?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;
+            return `<div class=\"artifact\"><div class=\"artifact-caption\">${escapeHtml(o.filename || '文件')}</div><a href=\"${url}\" target=\"_blank\">预览</a> · <a href=\"${dl}\">下载</a></div>`;
+          }
+          return '';
         }).join('');
-        const zip = `<div style=\"margin:8px 0\"><a href=\"/api/jobs/${id}/download.zip\">下载全部为 ZIP</a></div>`;
-        document.getElementById('images').innerHTML = zip + imgs;
+        const zip = fileOutputs.length ? `<div class=\"artifact-zip\"><a href=\"/api/jobs/${id}/download.zip\">下载全部文件为 ZIP</a></div>` : '';
+        document.getElementById('images').innerHTML = zip + parts;
       } else if(j.ok && (j.status==='queued' || j.status==='running' || j.status==='submitting')){
         setTimeout(step, 1200);
       }

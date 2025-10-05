@@ -4,6 +4,7 @@ from functools import wraps
 import io, zipfile
 from datetime import datetime
 from PIL import Image
+import mimetypes
 
 jobs_bp = Blueprint("jobs", __name__)
 
@@ -49,6 +50,50 @@ def login_required(fn):
             return jsonify({"ok": False, "msg": "未登录"}), 401
         return fn(*a, **kw)
     return wrap
+
+
+def _bump_progress(job, *, step=5, ceiling=95, floor=10):
+    """Increase job.progress while keeping value within bounds."""
+    try:
+        current = float(job.get("progress") or 0)
+    except (TypeError, ValueError):
+        current = 0
+    base = current if current >= floor else floor
+    new_value = min(ceiling, base + step)
+    if new_value > current:
+        job["progress"] = int(new_value)
+
+
+def _apply_history_progress(job, history_item):
+    """Try to map ComfyUI history status fields to a percentage."""
+    status = history_item.get("status") if isinstance(history_item, dict) else None
+    if not isinstance(status, dict):
+        return False
+
+    ratios = []
+    completed = status.get("completed")
+    total = status.get("total") or status.get("max") or status.get("total_nodes")
+    ratios.append((completed, total))
+
+    # Comfy websocket progress payload sometimes uses value/max or current/total
+    ratios.append((status.get("value"), status.get("max")))
+    ratios.append((status.get("current"), status.get("total")))
+
+    best_pct = None
+    for done, total in ratios:
+        if isinstance(done, (int, float)) and isinstance(total, (int, float)) and total > 0:
+            pct = max(0, min(95, int(done / total * 100)))
+            best_pct = pct if best_pct is None else max(best_pct, pct)
+
+    if best_pct is None:
+        return False
+
+    current = job.get("progress", 0) or 0
+    if best_pct > current:
+        job["progress"] = best_pct
+        return True
+
+    return False
 
 
 def _worker():
@@ -350,31 +395,86 @@ def _run_job(job_id):
     # poll history
     deadline = time.time() + 600
     outputs = []
+    file_outputs = []  # 记录可下载产物，用于 ZIP
     while time.time() < deadline:
-        h = requests.get(f"{comfy}/history/{prompt_id}", timeout=30)
+        try:
+            h = requests.get(f"{comfy}/history/{prompt_id}", timeout=30)
+        except requests.RequestException:
+            _bump_progress(j, step=2, ceiling=90)
+            time.sleep(1)
+            continue
         if h.status_code != 200:
-            time.sleep(1); continue
-        item = (h.json() or {}).get(prompt_id)
+            _bump_progress(j, step=2, ceiling=90)
+            time.sleep(1)
+            continue
+        try:
+            payload = h.json() or {}
+        except ValueError:
+            _bump_progress(j, step=2, ceiling=90)
+            time.sleep(1)
+            continue
+        item = payload.get(prompt_id)
         if not item:
-            time.sleep(1); continue
+            _bump_progress(j, step=2, ceiling=90)
+            time.sleep(1)
+            continue
         if item.get("node_errors"):
             j.update(status="error", error=str(item.get("node_errors")))
             return
         outs = item.get("outputs") or {}
         for node_out in outs.values():
             for img in node_out.get("images", []):
-                outputs.append({
+                artifact = {
+                    "kind": "image",
                     "filename": img.get("filename"),
                     "subfolder": img.get("subfolder", ""),
                     "type": img.get("type", "output")
-                })
+                }
+                outputs.append(artifact)
+                file_outputs.append(artifact)
+
+            for audio in node_out.get("audio", []):
+                artifact = {
+                    "kind": "audio",
+                    "filename": audio.get("filename"),
+                    "subfolder": audio.get("subfolder", ""),
+                    "type": audio.get("type", "output"),
+                    "format": audio.get("format") or audio.get("mime", "")
+                }
+                outputs.append(artifact)
+                file_outputs.append(artifact)
+
+            for file_item in node_out.get("files", []):
+                artifact = {
+                    "kind": file_item.get("kind") or "file",
+                    "filename": file_item.get("filename"),
+                    "subfolder": file_item.get("subfolder", ""),
+                    "type": file_item.get("type", "output"),
+                }
+                outputs.append(artifact)
+                file_outputs.append(artifact)
+
+            for text_item in node_out.get("text", []):
+                if isinstance(text_item, dict):
+                    content = text_item.get("text") or text_item.get("content") or ""
+                    extra = {k: v for k, v in text_item.items() if k not in {"text", "content"}}
+                else:
+                    content = str(text_item)
+                    extra = {}
+                if content:
+                    artifact = {"kind": "text", "text": content}
+                    if extra:
+                        artifact.update({"meta": extra})
+                    outputs.append(artifact)
+
         if outputs:
             break
-        j["progress"] = min(95, j.get("progress", 10) + 5)
+        if not _apply_history_progress(j, item):
+            _bump_progress(j)
         time.sleep(1)
     if not outputs:
         j.update(status="timeout", progress=100, done_at=time.time()); return
-    j.update(status="finished", progress=100, outputs=outputs, done_at=time.time())
+    j.update(status="finished", progress=100, outputs=outputs, done_at=time.time(), file_outputs=file_outputs)
 
 
 def _list_workflows_impl():
@@ -618,7 +718,7 @@ def download_zip(job_id):
     j = _jobs.get(job_id)
     if not j:
         return jsonify({"ok": False, "msg": "不存在的任务"}), 404
-    artifacts = j.get("outputs", [])
+    artifacts = j.get("file_outputs") or [a for a in j.get("outputs", []) if a.get("filename")]
     if not artifacts:
         return jsonify({"ok": False, "msg": "该任务没有可下载的产物"}), 400
     comfy = j.get("comfy_url") or _comfy_url()
