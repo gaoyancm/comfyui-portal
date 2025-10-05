@@ -171,3 +171,22 @@
 - 部署后至少验证一次：提交任务 → 轮询进度 → 预览缩略图 → 下载 ZIP。
 - 修改工作流或表单后同步更新 `servers.json` 映射。
 - 建议定期备份 `workflows/`、`users.csv`、`assets/` 和结果目录。
+
+## 发布与回滚流程
+1. **在打标签或部署前保持工作区干净**
+   - 运行 `git status`，确保没有待提交的修改。
+   - 若看到 `workflows/servers.json` 等环境私有配置有改动，可用 `git restore workflows/servers.json` 或 `git checkout -- workflows/servers.json` 恢复到仓库版本；如需长期保留本地改动，可在单独分支或私有仓库维护。
+   - 对于 `.tar.gz` 备份包等临时文件，可执行 `git clean -f` 或手动删除；仓库已忽略 `project_backup_*.tar.gz`，避免误加入提交。
+   - 如需暂存本地修改以便稍后恢复，可用 `git stash push --include-untracked`。
+2. **创建版本标签**
+   ```bash
+   git tag -a vX.Y.Z -m "Stable portal release"
+   git push origin vX.Y.Z
+   ```
+   版本号可按团队约定调整，建议同时在 Release Notes/CHANGELOG 中记录关键变更。
+3. **部署指定标签**
+   - 手工部署时执行 `git fetch --tags` 后 `git checkout vX.Y.Z`，再重启服务进程。
+   - CI/CD 可将目标标签作为参数传入，保证线上环境始终指向明确版本。
+4. **需要回滚时**
+   - 直接切换到旧标签或基于标签创建 hotfix 分支：`git checkout vPrevious` 或 `git checkout -b hotfix/<issue> vPrevious`。
+   - 修复后重新打标签并部署。
