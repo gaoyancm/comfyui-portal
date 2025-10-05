@@ -1,9 +1,10 @@
 from flask import Blueprint, current_app, request, jsonify, send_file
-import os, uuid, threading, queue, time, json, requests, re
+import os, uuid, threading, queue, time, json, requests, re, tempfile
 from functools import wraps
 import io, zipfile
 from datetime import datetime
 from PIL import Image
+import mimetypes
 
 jobs_bp = Blueprint("jobs", __name__)
 
@@ -12,6 +13,9 @@ _task_q = queue.Queue()
 _jobs = {}  # job_id -> {status, progress, prompt_id, outputs:[], error, wf_path, mapping}
 _flask_app = None  # set via attach_app(app)
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+JOBS_STATE_DIR = os.path.join(DATA_DIR, "jobs")
+MAX_HISTORY_ITEMS = 500
 
 # Allowlisted local preview directories
 ALLOWED_PREVIEW_DIRS = {
@@ -51,13 +55,138 @@ def login_required(fn):
     return wrap
 
 
+def _ensure_job_storage():
+    os.makedirs(JOBS_STATE_DIR, exist_ok=True)
+
+
+def _job_state_path(job_id):
+    return os.path.join(JOBS_STATE_DIR, f"{job_id}.json")
+
+
+def _persist_job_state(job_id):
+    job = _jobs.get(job_id)
+    if not job:
+        return
+    _ensure_job_storage()
+    payload = {**job, "job_id": job_id}
+    tmp_fd, tmp_path = tempfile.mkstemp(prefix=f".{job_id}.", suffix=".tmp", dir=JOBS_STATE_DIR)
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False, indent=2)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp_path, _job_state_path(job_id))
+        try:
+            files = [os.path.join(JOBS_STATE_DIR, name) for name in os.listdir(JOBS_STATE_DIR) if name.endswith(".json")]
+            if len(files) > MAX_HISTORY_ITEMS:
+                files.sort(key=lambda p: os.path.getmtime(p))
+                for old_path in files[:-MAX_HISTORY_ITEMS]:
+                    try:
+                        os.remove(old_path)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+def _load_job_state(job_id):
+    path = _job_state_path(job_id)
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except Exception:
+        return None
+    if isinstance(data, dict):
+        data.setdefault("job_id", job_id)
+        _jobs[job_id] = data
+        return data
+    return None
+
+
+def _get_job(job_id):
+    job = _jobs.get(job_id)
+    if job:
+        return job
+    return _load_job_state(job_id)
+
+
+def _update_job(job_id, **fields):
+    job = _get_job(job_id)
+    if job is None:
+        job = {"job_id": job_id}
+        _jobs[job_id] = job
+    changed = False
+    for key, value in fields.items():
+        if job.get(key) != value:
+            changed = True
+        job[key] = value
+    if changed:
+        _persist_job_state(job_id)
+    return job
+
+
+def _bump_progress(job, *, step=5, ceiling=95, floor=10):
+    """Increase job.progress while keeping value within bounds."""
+    try:
+        current = float(job.get("progress") or 0)
+    except (TypeError, ValueError):
+        current = 0
+    base = current if current >= floor else floor
+    new_value = min(ceiling, base + step)
+    if new_value > current:
+        job["progress"] = int(new_value)
+        job_id = job.get("job_id")
+        if job_id:
+            _persist_job_state(job_id)
+
+
+def _apply_history_progress(job, history_item):
+    """Try to map ComfyUI history status fields to a percentage."""
+    status = history_item.get("status") if isinstance(history_item, dict) else None
+    if not isinstance(status, dict):
+        return False
+
+    ratios = []
+    completed = status.get("completed")
+    total = status.get("total") or status.get("max") or status.get("total_nodes")
+    ratios.append((completed, total))
+
+    # Comfy websocket progress payload sometimes uses value/max or current/total
+    ratios.append((status.get("value"), status.get("max")))
+    ratios.append((status.get("current"), status.get("total")))
+
+    best_pct = None
+    for done, total in ratios:
+        if isinstance(done, (int, float)) and isinstance(total, (int, float)) and total > 0:
+            pct = max(0, min(95, int(done / total * 100)))
+            best_pct = pct if best_pct is None else max(best_pct, pct)
+
+    if best_pct is None:
+        return False
+
+    current = job.get("progress", 0) or 0
+    if best_pct > current:
+        job["progress"] = best_pct
+        job_id = job.get("job_id")
+        if job_id:
+            _persist_job_state(job_id)
+        return True
+
+    return False
+
+
 def _worker():
     while True:
         job_id = _task_q.get()
         try:
             _run_job(job_id)
         except Exception as e:
-            _jobs[job_id].update(status="error", error=str(e), done_at=time.time())
+            _update_job(job_id, status="error", error=str(e), done_at=time.time())
         finally:
             _task_q.task_done()
 
@@ -66,6 +195,7 @@ _worker_thread_started = False
 def attach_app(app):
     global _flask_app, _worker_thread_started
     _flask_app = app
+    _ensure_job_storage()
     if not _worker_thread_started:
         threading.Thread(target=_worker, daemon=True).start()
         _worker_thread_started = True
@@ -312,7 +442,10 @@ def _upload_to_comfy(file_path, kind='image', comfy_base=None):
             pass
 
 def _run_job(job_id):
-    j = _jobs[job_id]
+    j = _get_job(job_id)
+    if j is None:
+        _update_job(job_id, status="error", error="无法加载任务状态", done_at=time.time())
+        return
     comfy = j.get("comfy_url") or _comfy_url()
     # load workflow json
     with open(j["wf_path"], "r", encoding="utf-8") as f:
@@ -338,43 +471,99 @@ def _run_job(job_id):
             prompt_json = _apply_overrides(prompt_json, ov)
 
     client_id = str(uuid.uuid4())
-    j.update(status="submitting", progress=5)
+    _update_job(job_id, status="submitting", progress=5)
     r = requests.post(f"{comfy}/prompt", json={"prompt": prompt_json, "client_id": client_id}, timeout=60)
     if r.status_code != 200:
         raise RuntimeError(r.text)
     prompt_id = r.json().get("prompt_id") or r.json().get("promptId")
     if not prompt_id:
         raise RuntimeError("ComfyUI 未返回 prompt_id")
-    j.update(status="running", progress=10, prompt_id=prompt_id)
+    _update_job(job_id, status="running", progress=10, prompt_id=prompt_id)
 
     # poll history
     deadline = time.time() + 600
     outputs = []
+    file_outputs = []  # 记录可下载产物，用于 ZIP
     while time.time() < deadline:
-        h = requests.get(f"{comfy}/history/{prompt_id}", timeout=30)
+        try:
+            h = requests.get(f"{comfy}/history/{prompt_id}", timeout=30)
+        except requests.RequestException:
+            _bump_progress(j, step=2, ceiling=90)
+            time.sleep(1)
+            continue
         if h.status_code != 200:
-            time.sleep(1); continue
-        item = (h.json() or {}).get(prompt_id)
+            _bump_progress(j, step=2, ceiling=90)
+            time.sleep(1)
+            continue
+        try:
+            payload = h.json() or {}
+        except ValueError:
+            _bump_progress(j, step=2, ceiling=90)
+            time.sleep(1)
+            continue
+        item = payload.get(prompt_id)
         if not item:
-            time.sleep(1); continue
+            _bump_progress(j, step=2, ceiling=90)
+            time.sleep(1)
+            continue
         if item.get("node_errors"):
-            j.update(status="error", error=str(item.get("node_errors")))
+            _update_job(job_id, status="error", error=str(item.get("node_errors")))
             return
         outs = item.get("outputs") or {}
         for node_out in outs.values():
             for img in node_out.get("images", []):
-                outputs.append({
+                artifact = {
+                    "kind": "image",
                     "filename": img.get("filename"),
                     "subfolder": img.get("subfolder", ""),
                     "type": img.get("type", "output")
-                })
+                }
+                outputs.append(artifact)
+                file_outputs.append(artifact)
+
+            for audio in node_out.get("audio", []):
+                artifact = {
+                    "kind": "audio",
+                    "filename": audio.get("filename"),
+                    "subfolder": audio.get("subfolder", ""),
+                    "type": audio.get("type", "output"),
+                    "format": audio.get("format") or audio.get("mime", "")
+                }
+                outputs.append(artifact)
+                file_outputs.append(artifact)
+
+            for file_item in node_out.get("files", []):
+                artifact = {
+                    "kind": file_item.get("kind") or "file",
+                    "filename": file_item.get("filename"),
+                    "subfolder": file_item.get("subfolder", ""),
+                    "type": file_item.get("type", "output"),
+                }
+                outputs.append(artifact)
+                file_outputs.append(artifact)
+
+            for text_item in node_out.get("text", []):
+                if isinstance(text_item, dict):
+                    content = text_item.get("text") or text_item.get("content") or ""
+                    extra = {k: v for k, v in text_item.items() if k not in {"text", "content"}}
+                else:
+                    content = str(text_item)
+                    extra = {}
+                if content:
+                    artifact = {"kind": "text", "text": content}
+                    if extra:
+                        artifact.update({"meta": extra})
+                    outputs.append(artifact)
+
         if outputs:
             break
-        j["progress"] = min(95, j.get("progress", 10) + 5)
+        if not _apply_history_progress(j, item):
+            _bump_progress(j)
         time.sleep(1)
     if not outputs:
-        j.update(status="timeout", progress=100, done_at=time.time()); return
-    j.update(status="finished", progress=100, outputs=outputs, done_at=time.time())
+        _update_job(job_id, status="timeout", progress=100, done_at=time.time())
+        return
+    _update_job(job_id, status="finished", progress=100, outputs=outputs, done_at=time.time(), file_outputs=file_outputs)
 
 
 def _list_workflows_impl():
@@ -515,14 +704,16 @@ def create_job():
         "user": session.get("user"),
         "overrides": overrides,
         "mapping": mapping,
+        "job_id": job_id,
     }
+    _persist_job_state(job_id)
     _task_q.put(job_id)
     return jsonify({"ok": True, "job_id": job_id})
 
 
 @jobs_bp.get("/jobs/<job_id>/status")
 def job_status(job_id):
-    j = _jobs.get(job_id)
+    j = _get_job(job_id)
     if not j:
         return jsonify({"ok": False, "msg": "不存在的任务"}), 404
     return jsonify({"ok": True, **j})
@@ -550,7 +741,7 @@ def proxy_view():
 def job_proxy_view(job_id):
     # Image preview that respects the server used by the specific job
     from flask import Response
-    j = _jobs.get(job_id)
+    j = _get_job(job_id)
     if not j:
         return jsonify({"ok": False, "msg": "不存在的任务"}), 404
     filename = request.args.get("filename"); subfolder = request.args.get("subfolder","" ); typ = request.args.get("type","output")
@@ -565,7 +756,7 @@ def job_proxy_view(job_id):
 
 @jobs_bp.get("/jobs/<job_id>/artifacts")
 def job_artifacts(job_id):
-    j = _jobs.get(job_id)
+    j = _get_job(job_id)
     if not j:
         return jsonify({"ok": False, "msg": "不存在的任务"}), 404
     return jsonify({"ok": True, "artifacts": j.get("outputs", [])})
@@ -574,26 +765,46 @@ def job_artifacts(job_id):
 @jobs_bp.get("/jobs")
 def list_jobs():
     # return light-weight summaries
-    limit = int(request.args.get("limit", 100))
+    try:
+        limit = int(request.args.get("limit", 100))
+    except (TypeError, ValueError):
+        limit = 100
+    records = {}
+    if os.path.isdir(JOBS_STATE_DIR):
+        for name in os.listdir(JOBS_STATE_DIR):
+            if not name.endswith(".json"):
+                continue
+            job_id = name[:-5]
+            data = _load_job_state(job_id)
+            if not isinstance(data, dict):
+                continue
+            records[job_id] = data
+    for jid, job in _jobs.items():
+        records[jid] = job
+
     items = []
-    for jid, j in _jobs.items():
+    for jid, job in records.items():
+        outputs = job.get("outputs") or []
         items.append({
             "job_id": jid,
-            "status": j.get("status"),
-            "progress": j.get("progress"),
-            "workflow": j.get("workflow"),
-            "created_at": j.get("created_at"),
-            "done_at": j.get("done_at"),
-            "outputs": len(j.get("outputs", [])),
-            "error": j.get("error"),
+            "status": job.get("status"),
+            "progress": job.get("progress"),
+            "workflow": job.get("workflow"),
+            "created_at": job.get("created_at"),
+            "done_at": job.get("done_at"),
+            "outputs": len(outputs),
+            "error": job.get("error"),
         })
     items.sort(key=lambda x: x.get("created_at") or 0, reverse=True)
+    if limit <= 0:
+        limit = MAX_HISTORY_ITEMS
+    limit = min(limit, MAX_HISTORY_ITEMS)
     return jsonify({"ok": True, "items": items[:limit]})
 
 
 @jobs_bp.get("/jobs/<job_id>/download")
 def download_single(job_id):
-    j = _jobs.get(job_id)
+    j = _get_job(job_id)
     if not j:
         return jsonify({"ok": False, "msg": "不存在的任务"}), 404
     filename = request.args.get("filename")
@@ -615,10 +826,10 @@ def download_single(job_id):
 
 @jobs_bp.get("/jobs/<job_id>/download.zip")
 def download_zip(job_id):
-    j = _jobs.get(job_id)
+    j = _get_job(job_id)
     if not j:
         return jsonify({"ok": False, "msg": "不存在的任务"}), 404
-    artifacts = j.get("outputs", [])
+    artifacts = j.get("file_outputs") or [a for a in j.get("outputs", []) if a.get("filename")]
     if not artifacts:
         return jsonify({"ok": False, "msg": "该任务没有可下载的产物"}), 400
     comfy = j.get("comfy_url") or _comfy_url()

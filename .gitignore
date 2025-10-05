@@ -15,6 +15,7 @@ venv/
 # Local data/output
 uploads/
 results/
+data/
 
 # IDE
 .vscode/
@@ -34,4 +35,5 @@ tmp/
 
 # local backups
 app/jobs2.py.bak.*
+project_backup_*.tar.gz
 
