@@ -8,7 +8,7 @@
 </head>
 <body>
   <div class="wrap">
-  <div class="nav"><div class="brand">ComfyUI Portal · <b>任务历史</b></div><a class="pill" href="/">返回</a></div>
+  <div class="nav"><div class="brand">ComfyUI Portal · <b>任务历史</b></div><a class="pill" href="/" id="btnClose">关闭页面</a></div>
   <div class="card">
   <div class="muted" id="userbar" style="margin-bottom:8px"></div>
   <div style="margin:8px 0; display:flex; gap:8px; align-items:center;">
@@ -35,6 +35,16 @@
 <script>
 const $ = s => document.querySelector(s);
 function ts(t){ if(!t) return ''; const d = new Date(t * 1000); return d.toLocaleString(); }
+document.addEventListener('DOMContentLoaded', () => {
+  const closeBtn = document.getElementById('btnClose');
+  if(closeBtn){
+    closeBtn.addEventListener('click', ev => {
+      ev.preventDefault();
+      window.close();
+      setTimeout(() => { location.href = '/'; }, 200);
+    });
+  }
+});
 async function authBar(){
   const r = await fetch('/auth/status');
   if(r.status === 401){ location.href = '/login'; return; }
