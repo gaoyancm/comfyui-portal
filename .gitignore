@@ -15,6 +15,7 @@ venv/
 # Local data/output
 uploads/
 results/
+data/
 
 # IDE
 .vscode/
