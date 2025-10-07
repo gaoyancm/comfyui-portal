@@ -275,6 +275,50 @@ async function loadWorkflows(){
   sel.onchange = async ()=>{ document.getElementById('wfInput').value = sel.value; await loadForm(sel.value); };
 }
 
+let submitCooldownTimer = null;
+
+function startSubmitCooldown(seconds, prefixText){
+  const submitBtn = document.querySelector('#jobForm button[type="submit"]');
+  const respEl = document.getElementById('createResp');
+  if(!submitBtn || !respEl){ return; }
+  if(submitCooldownTimer){
+    clearInterval(submitCooldownTimer);
+    submitCooldownTimer = null;
+  }
+  let remaining = Math.max(0, seconds|0);
+  const formatMessage = () => {
+    const countdownText = `您在“${remaining}”秒之后才能再次提交`;
+    if(prefixText){
+      const suffix = prefixText.endsWith('。') ? '' : '。';
+      respEl.textContent = `${prefixText}${suffix}${countdownText}`;
+    }else{
+      respEl.textContent = countdownText;
+    }
+  };
+  submitBtn.disabled = true;
+  formatMessage();
+  if(remaining <= 0){
+    submitBtn.disabled = false;
+    if(prefixText){ respEl.textContent = prefixText; }
+    return;
+  }
+  submitCooldownTimer = setInterval(() => {
+    remaining -= 1;
+    if(remaining <= 0){
+      clearInterval(submitCooldownTimer);
+      submitCooldownTimer = null;
+      submitBtn.disabled = false;
+      if(prefixText){
+        respEl.textContent = prefixText;
+      }else{
+        respEl.textContent = '';
+      }
+      return;
+    }
+    formatMessage();
+  }, 1000);
+}
+
 async function loadForm(wfname){
   const area = document.getElementById('formFields'); area.innerHTML='';
   const r = await fetch(`/api/workflows/${encodeURIComponent(wfname)}/form`); const j = await r.json();
@@ -284,15 +328,30 @@ async function loadForm(wfname){
 }
 
 function bindSubmit(){
-  document.getElementById('jobForm').addEventListener('submit', async (e)=>{
+  const form = document.getElementById('jobForm');
+  const submitBtn = form.querySelector('button[type="submit"]');
+  form.addEventListener('submit', async (e)=>{
     e.preventDefault();
+    if(submitBtn){ submitBtn.disabled = true; }
     const fd = new FormData(e.target);
+    let cooldownStarted = false;
     try{
       const res = await fetch('/api/jobs', {method:'POST', body:fd});
       const j = await res.json();
-      document.getElementById('createResp').textContent = JSON.stringify(j);
-      if(j.ok){ document.getElementById('jobId').value = j.job_id; }
-    }catch(err){ document.getElementById('createResp').textContent = err+''; }
+      if(j.ok){
+        if(j.job_id){ document.getElementById('jobId').value = j.job_id; }
+        const successText = `提交成功，任务 ID：${j.job_id || ''}`.trim();
+        startSubmitCooldown(120, successText);
+        cooldownStarted = true;
+      }else{
+        const msg = j.error ? `提交失败：${j.error}` : '提交失败，请稍后重试。';
+        document.getElementById('createResp').textContent = msg;
+      }
+    }catch(err){
+      document.getElementById('createResp').textContent = `提交失败：${err}`;
+    }finally{
+      if(!cooldownStarted && submitBtn){ submitBtn.disabled = false; }
+    }
   });
 }
 
