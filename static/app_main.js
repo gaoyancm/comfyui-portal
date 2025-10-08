@@ -254,52 +254,274 @@ function renderField(container, f){
   container.appendChild(wrap);
 }
 
-
+async function parseJsonResponse(res, context){
+  const raw = await res.text();
+  if(!raw){
+    if(res.ok){ return {}; }
+    throw new Error(`${context}：服务器返回空响应（${res.status} ${res.statusText}）`);
+  }
+  try{
+    return JSON.parse(raw);
+  }catch(err){
+    const type = res.headers && res.headers.get ? (res.headers.get('content-type') || '未知类型') : '未知类型';
+    const snippet = raw.replace(/\s+/g, ' ').trim().slice(0, 160);
+    const extra = snippet ? ` 内容片段：${snippet}` : '';
+    throw new Error(`${context}：服务器返回了无法解析的响应（${res.status} ${res.statusText}，${type}）。${extra}`);
+  }
+}
 
 async function authGuard(){
   const r = await fetch('/auth/status');
   if(r.status === 401){ location.href = '/login'; return false; }
-  const j = await r.json();
+  const j = await parseJsonResponse(r, '获取登录状态');
   const bar = document.getElementById('userbar');
   const adminLink = j.role==='admin' ? ` | <a class="pill" href="/admin/settings">后台</a>` : '';
   bar.innerHTML = `已登录：${(j.user||'')}${adminLink} <a class="pill" href="/logout_page" style="margin-left:8px">退出</a>`;
   return true;
 }
 
+const LONG_WORKFLOW_PREFIXES = ['L15', 'L6', 'L16_1', 'L16_2'];
+
+function isLongWorkflowName(name){
+  const upper = (name || '').toUpperCase();
+  return LONG_WORKFLOW_PREFIXES.some(prefix => upper.startsWith(prefix.toUpperCase()));
+}
+
+function applyLongWorkflowNotice(workflowName){
+  const notice = document.getElementById('longWorkflowNotice');
+  if(!notice){ return; }
+  if(isLongWorkflowName(workflowName)){
+    notice.style.display = '';
+  }else{
+    notice.style.display = 'none';
+  }
+}
+
+function getCurrentWorkflow(){
+  const input = document.getElementById('wfInput');
+  return input ? (input.value || '') : '';
+}
+
+function getCooldownSecondsForWorkflow(workflowName){
+  return isLongWorkflowName(workflowName) ? 300 : 120;
+}
+
 async function loadWorkflows(){
   const sel = document.getElementById('wfSelect');
-  const resp = await fetch('/api/workflows'); const j = await resp.json();
-  sel.innerHTML = '';
-  (j.items||[]).forEach(it=>{ const o=document.createElement('option'); o.value=it.workflow; o.textContent=it.workflow+(it.has_form?'':' (无表单)'); sel.appendChild(o)});
-  if(j.items&&j.items.length){ sel.value = j.items[0].workflow; document.getElementById('wfInput').value = sel.value; await loadForm(sel.value); }
-  sel.onchange = async ()=>{ document.getElementById('wfInput').value = sel.value; await loadForm(sel.value); };
+  const wfInput = document.getElementById('wfInput');
+  const statusEl = document.getElementById('wfStatus');
+  if(!sel){ return; }
+  const showStatus = (message, isError=false) => {
+    if(!statusEl){ return; }
+    if(message){
+      statusEl.style.display = '';
+      statusEl.textContent = message;
+    }else{
+      statusEl.textContent = '';
+      statusEl.style.display = 'none';
+    }
+    statusEl.classList.toggle('error-text', Boolean(isError && message));
+  };
+  const currentWorkflow = () => (sel.value || (wfInput ? wfInput.value : '') || '').trim();
+  let selected = currentWorkflow();
+
+  try{
+    const resp = await fetch('/api/workflows');
+    if(resp.status === 401){ location.href = '/login'; return; }
+    const data = await parseJsonResponse(resp, '加载工作流列表');
+    const items = Array.isArray(data.items) ? data.items : [];
+    if(items.length){
+      const prev = selected;
+      sel.innerHTML = '';
+      items.forEach(it => {
+        const option = document.createElement('option');
+        option.value = it.workflow;
+        option.textContent = `${it.workflow}${it.has_form ? '' : ' (无表单)'}`;
+        sel.appendChild(option);
+      });
+      if(prev && items.some(it => it.workflow === prev)){
+        selected = prev;
+      }else{
+        selected = items[0].workflow;
+      }
+      sel.value = selected;
+      showStatus('');
+    }else{
+      if(!sel.options.length){
+        const option = document.createElement('option');
+        option.value = '';
+        option.disabled = true;
+        option.selected = true;
+        option.textContent = '暂无可用工作流';
+        sel.appendChild(option);
+      }
+      selected = '';
+      showStatus('暂无可用工作流', true);
+    }
+    if(data && data.ok === false && data.msg){
+      showStatus(`加载工作流失败：${data.msg}`, true);
+    }
+  }catch(err){
+    console.error(err);
+    const msg = err && err.message ? err.message : String(err);
+    showStatus(`加载工作流失败：${msg}`, true);
+  }
+
+  if(!selected){
+    const fallback = Array.from(sel.options || []).find(opt => !opt.disabled && opt.value);
+    if(fallback){
+      selected = fallback.value;
+      sel.value = selected;
+    }
+  }
+
+  if(wfInput){
+    wfInput.value = selected || '';
+  }
+
+  if(selected){
+    await loadForm(selected);
+    applyLongWorkflowNotice(selected);
+  }else{
+    applyLongWorkflowNotice('');
+    const area = document.getElementById('formFields');
+    if(area){
+      area.innerHTML = '<div class="muted">请选择工作流后再填写表单。</div>';
+    }
+  }
+
+  sel.onchange = async ()=>{
+    const value = sel.value || '';
+    if(wfInput){ wfInput.value = value; }
+    if(value){
+      await loadForm(value);
+      applyLongWorkflowNotice(value);
+    }else{
+      applyLongWorkflowNotice('');
+      const area = document.getElementById('formFields');
+      if(area){
+        area.innerHTML = '<div class="muted">请选择工作流后再填写表单。</div>';
+      }
+    }
+  };
+}
+
+let submitCooldownTimer = null;
+
+function startSubmitCooldown(seconds, prefixText){
+  const submitBtn = document.querySelector('#jobForm button[type="submit"]');
+  const respEl = document.getElementById('createResp');
+  if(!submitBtn || !respEl){ return; }
+  if(submitCooldownTimer){
+    clearInterval(submitCooldownTimer);
+    submitCooldownTimer = null;
+  }
+  let remaining = Math.max(0, seconds|0);
+  const formatMessage = () => {
+    const countdownText = `您在“${remaining}”秒之后才能再次提交`;
+    if(prefixText){
+      const suffix = prefixText.endsWith('。') ? '' : '。';
+      respEl.textContent = `${prefixText}${suffix}${countdownText}`;
+    }else{
+      respEl.textContent = countdownText;
+    }
+  };
+  submitBtn.disabled = true;
+  formatMessage();
+  if(remaining <= 0){
+    submitBtn.disabled = false;
+    if(prefixText){ respEl.textContent = prefixText; }
+    return;
+  }
+  submitCooldownTimer = setInterval(() => {
+    remaining -= 1;
+    if(remaining <= 0){
+      clearInterval(submitCooldownTimer);
+      submitCooldownTimer = null;
+      submitBtn.disabled = false;
+      if(prefixText){
+        respEl.textContent = prefixText;
+      }else{
+        respEl.textContent = '';
+      }
+      return;
+    }
+    formatMessage();
+  }, 1000);
 }
 
 async function loadForm(wfname){
-  const area = document.getElementById('formFields'); area.innerHTML='';
-  const r = await fetch(`/api/workflows/${encodeURIComponent(wfname)}/form`); const j = await r.json();
-  const fields = (j.form && j.form.fields) || [];
-  if(!fields.length){ area.innerHTML = '<div class="muted">该工作流暂未提供表单定义，可直接提交。</div>'; }
-  fields.forEach(f=>renderField(area, f));
+  const area = document.getElementById('formFields');
+  if(!area){ return; }
+  if(!wfname){
+    area.innerHTML = '<div class="muted">请选择工作流后再填写表单。</div>';
+    return;
+  }
+  area.innerHTML = '<div class="muted">正在加载表单…</div>';
+  try{
+    const r = await fetch(`/api/workflows/${encodeURIComponent(wfname)}/form`);
+    if(r.status === 401){ location.href = '/login'; return; }
+    const j = await parseJsonResponse(r, '加载表单');
+    const fields = (j.form && j.form.fields) || [];
+    area.innerHTML = '';
+    if(!fields.length){
+      area.innerHTML = '<div class="muted">该工作流暂未提供表单定义，可直接提交。</div>';
+      return;
+    }
+    fields.forEach(f=>renderField(area, f));
+  }catch(err){
+    const msg = err && err.message ? err.message : String(err);
+    area.innerHTML = `<div class="error-text">加载表单失败：${escapeHtml(msg)}</div>`;
+  }
 }
 
 function bindSubmit(){
-  document.getElementById('jobForm').addEventListener('submit', async (e)=>{
+  const form = document.getElementById('jobForm');
+  const submitBtn = form.querySelector('button[type="submit"]');
+  form.addEventListener('submit', async (e)=>{
     e.preventDefault();
+    if(submitBtn){ submitBtn.disabled = true; }
     const fd = new FormData(e.target);
+    let cooldownStarted = false;
     try{
       const res = await fetch('/api/jobs', {method:'POST', body:fd});
-      const j = await res.json();
-      document.getElementById('createResp').textContent = JSON.stringify(j);
-      if(j.ok){ document.getElementById('jobId').value = j.job_id; }
-    }catch(err){ document.getElementById('createResp').textContent = err+''; }
+      let j;
+      try{
+        j = await parseJsonResponse(res, '提交任务');
+      }catch(parseErr){
+        document.getElementById('createResp').textContent = `提交失败：${parseErr.message || parseErr}`;
+        return;
+      }
+      if(!res.ok && !j.ok){
+        const msg = j && (j.error || j.message);
+        const fallback = `服务器返回错误（${res.status} ${res.statusText}）`;
+        document.getElementById('createResp').textContent = `提交失败：${msg || fallback}`;
+        return;
+      }
+      if(j.ok){
+        if(j.job_id){ document.getElementById('jobId').value = j.job_id; }
+        const successText = `提交成功，任务 ID：${j.job_id || ''}`.trim();
+        const wfName = getCurrentWorkflow();
+        const cooldownSeconds = getCooldownSecondsForWorkflow(wfName);
+        startSubmitCooldown(cooldownSeconds, successText);
+        applyLongWorkflowNotice(wfName);
+        cooldownStarted = true;
+      }else{
+        const msg = j.error ? `提交失败：${j.error}` : '提交失败，请稍后重试。';
+        document.getElementById('createResp').textContent = msg;
+      }
+    }catch(err){
+      document.getElementById('createResp').textContent = `提交失败：${err}`;
+    }finally{
+      if(!cooldownStarted && submitBtn){ submitBtn.disabled = false; }
+    }
   });
 }
 
 async function updateQueue(){
   try{
     const r = await fetch('/api/queue');
-    const j = await r.json();
+    const j = await parseJsonResponse(r, '获取队列信息');
     if(j && typeof j.queued !== 'undefined'){
       document.getElementById('queueCount').textContent = j.queued;
     }
@@ -311,13 +533,27 @@ function bindPoll(){
     const id = document.getElementById('jobId').value.trim();
     if(!id) return;
     async function step(){
-      const r = await fetch(`/api/jobs/${id}/status`);
-      const j = await r.json();
+      let j;
+      try{
+        const r = await fetch(`/api/jobs/${id}/status`);
+        j = await parseJsonResponse(r, '获取任务状态');
+      }catch(err){
+        console.error(err);
+        document.getElementById('stateText').textContent = '获取任务状态失败';
+        const detailErr = document.getElementById('detailsPre');
+        if(detailErr) detailErr.textContent = `${err}`;
+        return;
+      }
       // 仅在详情中保留原始 JSON
       const detail = document.getElementById('detailsPre');
       if(detail) detail.textContent = JSON.stringify(j,null,2);
       // 顶部简要信息
       document.getElementById('stateText').textContent = j.status || '-';
+      if(j.workflow){
+        applyLongWorkflowNotice(j.workflow);
+      }else{
+        applyLongWorkflowNotice(getCurrentWorkflow());
+      }
       updateQueue();
       const pw = document.getElementById('progWrap');
       const pb = document.getElementById('progBar');
@@ -336,6 +572,12 @@ function bindPoll(){
           if(!o){ return ''; }
           if(o.kind === 'text' && o.text){
             return `<div class=\"artifact artifact-text\"><div class=\"artifact-caption\">文本输出</div><pre>${escapeHtml(o.text)}</pre></div>`;
+          }
+          if(o.kind === 'video' && o.filename){
+            const url = `/api/jobs/${id}/comfy/view?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;
+            const dl = `/api/jobs/${id}/download?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;
+            const type = o.format || 'video/mp4';
+            return `<div class=\"artifact artifact-video\"><div class=\"artifact-caption\">视频输出：${escapeHtml(o.filename || '')}</div><video controls preload=\"metadata\" src=\"${url}\" type=\"${escapeHtml(type)}\"></video><div><a href=\"${dl}\">下载</a></div></div>`;
           }
           if(o.kind === 'audio' && o.filename){
             const url = `/api/jobs/${id}/comfy/view?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;
