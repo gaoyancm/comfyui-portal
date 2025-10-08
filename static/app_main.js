@@ -282,6 +282,7 @@ async function authGuard(){
 
 const LONG_WORKFLOW_PREFIXES = ['L15', 'L6', 'L16_1', 'L16_2'];
 const LIMITED_PREVIEW_WORKFLOWS = ['L16_2'];
+const AUDIO_SYNC_WORKFLOWS = ['L15_2', 'L16_1', 'L16_2'];
 
 function isLongWorkflowName(name){
   const upper = (name || '').toUpperCase();
@@ -291,6 +292,51 @@ function isLongWorkflowName(name){
 function shouldLimitPreview(name){
   const upper = (name || '').toUpperCase();
   return LIMITED_PREVIEW_WORKFLOWS.some(prefix => upper.startsWith(prefix.toUpperCase()));
+}
+
+function requiresAudioSync(name){
+  const upper = (name || '').toUpperCase();
+  return AUDIO_SYNC_WORKFLOWS.some(prefix => upper.startsWith(prefix.toUpperCase()));
+}
+
+function applyAudioDurationSync(workflowName){
+  if(!requiresAudioSync(workflowName)){ return; }
+  const form = document.getElementById('jobForm');
+  if(!form){ return; }
+  const audioField = form.querySelector('input[name="audio_duration"]');
+  const durationField = form.querySelector('input[name="duration"]');
+  if(!audioField || !durationField){ return; }
+
+  const syncToAudio = () => {
+    const audioVal = parseFloat(audioField.value);
+    if(!Number.isFinite(audioVal) || audioVal <= 0){ return; }
+    if(durationField.dataset.manualDuration === '1'){
+      const current = parseFloat(durationField.value);
+      if(!Number.isFinite(current) || current <= 0){
+        durationField.value = audioVal;
+      }
+      return;
+    }
+    durationField.value = audioVal;
+  };
+
+  audioField.addEventListener('input', () => {
+    delete durationField.dataset.manualDuration;
+    syncToAudio();
+  });
+  audioField.addEventListener('change', () => {
+    delete durationField.dataset.manualDuration;
+    syncToAudio();
+  });
+
+  const markManual = () => {
+    durationField.dataset.manualDuration = '1';
+  };
+
+  durationField.addEventListener('input', markManual);
+  durationField.addEventListener('change', markManual);
+
+  syncToAudio();
 }
 
 function filterOutputsForPreview(outputs, workflowName){
@@ -498,6 +544,7 @@ async function loadForm(wfname){
       return;
     }
     fields.forEach(f=>renderField(area, f));
+    applyAudioDurationSync(wfname);
   }catch(err){
     const msg = err && err.message ? err.message : String(err);
     area.innerHTML = `<div class="error-text">加载表单失败：${escapeHtml(msg)}</div>`;
@@ -510,6 +557,32 @@ function bindSubmit(){
   form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     if(submitBtn){ submitBtn.disabled = true; }
+    const respBox = document.getElementById('createResp');
+    if(respBox){ respBox.textContent = ''; }
+    const wfName = getCurrentWorkflow();
+    if(requiresAudioSync(wfName)){
+      const audioField = form.querySelector('input[name="audio_duration"]');
+      const durationField = form.querySelector('input[name="duration"]');
+      if(audioField && durationField){
+        const audioVal = parseFloat(audioField.value);
+        const durationVal = parseFloat(durationField.value);
+        if(Number.isFinite(audioVal) && Number.isFinite(durationVal)){
+          if(audioVal <= 0 || durationVal <= 0){
+            if(submitBtn){ submitBtn.disabled = false; }
+            if(respBox){ respBox.textContent = '提交失败：音频时长和生成时长必须大于 0。'; }
+            (durationVal <= 0 ? durationField : audioField).focus();
+            return;
+          }
+          const maxAllowed = Math.max(audioVal * 2, audioVal + 10);
+          if(durationVal > maxAllowed){
+            if(submitBtn){ submitBtn.disabled = false; }
+            if(respBox){ respBox.textContent = '提交失败：生成时长需要与音频时长接近，请调整“生成时长(秒)”字段。'; }
+            durationField.focus();
+            return;
+          }
+        }
+      }
+    }
     const fd = new FormData(e.target);
     let cooldownStarted = false;
     try{
@@ -582,6 +655,19 @@ function bindPoll(){
         applyLongWorkflowNotice(j.workflow);
       }else{
         applyLongWorkflowNotice(getCurrentWorkflow());
+      }
+      const jobErrorEl = document.getElementById('jobError');
+      if(jobErrorEl){
+        let message = '';
+        if(j.status === 'error'){
+          message = j.error ? `任务失败：${j.error}` : '任务失败：未返回具体原因。';
+        }else if(j.status === 'timeout'){
+          message = j.error ? `任务超时：${j.error}` : '任务超时：长时间未收到服务器响应。';
+        }else if(j.error && j.status !== 'finished'){
+          message = j.error.startsWith('提示：') ? j.error : `提示：${j.error}`;
+        }
+        jobErrorEl.textContent = message;
+        jobErrorEl.style.display = message ? '' : 'none';
       }
       updateQueue();
       const pw = document.getElementById('progWrap');

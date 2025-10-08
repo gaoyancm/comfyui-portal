@@ -58,15 +58,17 @@
       "name": "audio_duration",
       "label": "音频时长(秒)",
       "type": "number",
-      "default": 10.000000000000002,
-      "step": 0.1
+      "default": 10,
+      "step": 0.1,
+      "help": "请填写音频实际时长"
     },
     {
       "name": "duration",
       "label": "生成时长(秒)",
       "type": "number",
-      "default": 1000,
-      "step": 0.1
+      "default": 10,
+      "step": 0.1,
+      "help": "建议与音频时长一致，过长会导致失败"
     },
     {
       "name": "expand_ratio",

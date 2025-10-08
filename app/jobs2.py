@@ -295,6 +295,109 @@ def _guess_file_kind(filename):
     return 'image'
 
 
+_ERROR_STATUS_VALUES = {"error", "failed", "cancelled", "canceled"}
+
+
+def _stringify(value):
+    if value is None:
+        return ''
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value, ensure_ascii=False)
+    except Exception:
+        return str(value)
+
+
+def _localize_error_message(message):
+    text = _stringify(message).strip()
+    if not text:
+        return ''
+    lower = text.lower()
+    if 'input audio duration' in lower and 'infer audio duration' in lower:
+        return '音频时长与生成时长不匹配，请检查“音频时长(秒)”与“生成时长(秒)”字段。'
+    if 'bbox_s' in lower and 'referenced before assignment' in lower:
+        return '人脸检测失败，请使用清晰的正面人像图片或调整扩展比例后重试。'
+    if 'value not in list' in lower:
+        return text.replace('Value not in list', '选项不在允许列表中')
+    return text
+
+
+def _summarize_node_errors(node_errors):
+    if isinstance(node_errors, dict):
+        parts = []
+        for node_id, info in node_errors.items():
+            label = info.get('title') or info.get('label') or info.get('class_type') or f'节点 {node_id}'
+            errors = info.get('errors') or []
+            if not errors:
+                parts.append(f"{label}：出现未知错误")
+                continue
+            for err in errors:
+                message = err.get('message') or err.get('type') or ''
+                details = err.get('details')
+                extra_bits = []
+                if isinstance(details, dict):
+                    input_name = details.get('input_name')
+                    if input_name:
+                        extra_bits.append(f"字段 {input_name}")
+                    received = details.get('received_value')
+                    if received:
+                        extra_bits.append(f"收到值：{received}")
+                    input_config = details.get('input_config')
+                    if isinstance(input_config, (list, tuple)) and input_config:
+                        allowed = input_config[0]
+                        if isinstance(allowed, (list, tuple)) and allowed:
+                            allowed_str = '、'.join(str(v) for v in allowed)
+                            if allowed_str:
+                                extra_bits.append(f"允许值：{allowed_str}")
+                elif isinstance(details, (list, tuple)):
+                    detail_text = '、'.join(_stringify(v) for v in details if v)
+                    if detail_text:
+                        extra_bits.append(detail_text)
+                elif isinstance(details, str) and details:
+                    extra_bits.append(details)
+                if extra_bits:
+                    detail_text = '，'.join(extra_bits)
+                    message = f"{message}（{detail_text}）" if message else detail_text
+                parts.append(f"{label}：{_localize_error_message(message)}")
+        return '；'.join(parts)
+    if isinstance(node_errors, list):
+        return '；'.join(_localize_error_message(err) for err in node_errors if err)
+    return _localize_error_message(node_errors)
+
+
+def _history_status_failed(status_info):
+    if isinstance(status_info, dict):
+        status_value = status_info.get('status') or status_info.get('state')
+    else:
+        status_value = status_info
+    if not isinstance(status_value, str):
+        return False
+    return status_value.lower() in _ERROR_STATUS_VALUES
+
+
+def _extract_history_error(item):
+    if not isinstance(item, dict):
+        return ''
+    status_info = item.get('status')
+    if isinstance(status_info, dict):
+        for key in ('error', 'message', 'reason', 'info', 'detail'):
+            val = status_info.get(key)
+            if val:
+                return _stringify(val)
+        messages = status_info.get('messages')
+        if isinstance(messages, (list, tuple)):
+            joined = '；'.join(_stringify(m) for m in messages if m)
+            if joined:
+                return joined
+        if isinstance(messages, str) and messages:
+            return messages
+    for key in ('error', 'exception_message', 'exception', 'traceback'):
+        if item.get(key):
+            return _stringify(item.get(key))
+    return ''
+
+
 def _resolve_existing_file(field, value):
     if not isinstance(value, str) or not value.startswith('existing://'):
         return None
@@ -630,8 +733,33 @@ def _run_job(job_id):
             time.sleep(1)
             continue
         last_item = item
-        if item.get("node_errors"):
-            _update_job(job_id, status="error", error=str(item.get("node_errors")))
+        node_errors = item.get("node_errors")
+        if node_errors:
+            message = _summarize_node_errors(node_errors)
+            error_msg = message or "ComfyUI 返回节点错误"
+            _update_job(
+                job_id,
+                status="error",
+                error=_localize_error_message(error_msg) or error_msg,
+                progress=100,
+                done_at=time.time(),
+                outputs=[],
+                file_outputs=[],
+            )
+            return
+        status_info = item.get("status")
+        if _history_status_failed(status_info):
+            status_message = _extract_history_error(item) or "ComfyUI 返回错误状态"
+            localized = _localize_error_message(status_message) or status_message
+            _update_job(
+                job_id,
+                status="error",
+                error=localized,
+                progress=100,
+                done_at=time.time(),
+                outputs=[],
+                file_outputs=[],
+            )
             return
         outs = item.get("outputs") or {}
         for node_out in outs.values():
@@ -683,12 +811,51 @@ def _run_job(job_id):
             _bump_progress(j)
         time.sleep(1)
     if not outputs:
-        status_info = last_item.get("status") if isinstance(last_item, dict) else {}
+        if isinstance(last_item, dict):
+            node_errors = last_item.get("node_errors")
+            if node_errors:
+                message = _summarize_node_errors(node_errors)
+                error_msg = message or "ComfyUI 返回节点错误"
+                _update_job(
+                    job_id,
+                    status="error",
+                    error=_localize_error_message(error_msg) or error_msg,
+                    progress=100,
+                    done_at=time.time(),
+                    outputs=[],
+                    file_outputs=[],
+                )
+                return
+            status_info = last_item.get("status")
+            if _history_status_failed(status_info):
+                status_message = _extract_history_error(last_item) or "ComfyUI 返回错误状态"
+                localized = _localize_error_message(status_message) or status_message
+                _update_job(
+                    job_id,
+                    status="error",
+                    error=localized,
+                    progress=100,
+                    done_at=time.time(),
+                    outputs=[],
+                    file_outputs=[],
+                )
+                return
+            status_info = status_info if isinstance(status_info, dict) else {}
+        else:
+            status_info = {}
         state_val = status_info.get("status") if isinstance(status_info, dict) else None
         if state_val in {"success", "finished", "completed"}:
             _update_job(job_id, status="finished", progress=100, outputs=[], done_at=time.time(), file_outputs=[])
             return
-        _update_job(job_id, status="timeout", progress=100, done_at=time.time())
+        _update_job(
+            job_id,
+            status="timeout",
+            progress=100,
+            done_at=time.time(),
+            error="轮询超时：长时间未收到服务器响应，任务可能仍在后台运行，请稍后查看历史记录。",
+            outputs=[],
+            file_outputs=file_outputs,
+        )
         return
     _update_job(job_id, status="finished", progress=100, outputs=outputs, done_at=time.time(), file_outputs=file_outputs)
 
