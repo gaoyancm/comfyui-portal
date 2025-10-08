@@ -359,6 +359,50 @@ function startSubmitCooldown(seconds, prefixText){
   }, 1000);
 }
 
+let submitCooldownTimer = null;
+
+function startSubmitCooldown(seconds, prefixText){
+  const submitBtn = document.querySelector('#jobForm button[type="submit"]');
+  const respEl = document.getElementById('createResp');
+  if(!submitBtn || !respEl){ return; }
+  if(submitCooldownTimer){
+    clearInterval(submitCooldownTimer);
+    submitCooldownTimer = null;
+  }
+  let remaining = Math.max(0, seconds|0);
+  const formatMessage = () => {
+    const countdownText = `您在“${remaining}”秒之后才能再次提交`;
+    if(prefixText){
+      const suffix = prefixText.endsWith('。') ? '' : '。';
+      respEl.textContent = `${prefixText}${suffix}${countdownText}`;
+    }else{
+      respEl.textContent = countdownText;
+    }
+  };
+  submitBtn.disabled = true;
+  formatMessage();
+  if(remaining <= 0){
+    submitBtn.disabled = false;
+    if(prefixText){ respEl.textContent = prefixText; }
+    return;
+  }
+  submitCooldownTimer = setInterval(() => {
+    remaining -= 1;
+    if(remaining <= 0){
+      clearInterval(submitCooldownTimer);
+      submitCooldownTimer = null;
+      submitBtn.disabled = false;
+      if(prefixText){
+        respEl.textContent = prefixText;
+      }else{
+        respEl.textContent = '';
+      }
+      return;
+    }
+    formatMessage();
+  }, 1000);
+}
+
 async function loadForm(wfname){
   const area = document.getElementById('formFields'); area.innerHTML='';
   const r = await fetch(`/api/workflows/${encodeURIComponent(wfname)}/form`); const j = await parseJsonResponse(r, '加载表单');
