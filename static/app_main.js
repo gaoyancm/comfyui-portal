@@ -254,12 +254,26 @@ function renderField(container, f){
   container.appendChild(wrap);
 }
 
-
+async function parseJsonResponse(res, context){
+  const raw = await res.text();
+  if(!raw){
+    if(res.ok){ return {}; }
+    throw new Error(`${context}：服务器返回空响应（${res.status} ${res.statusText}）`);
+  }
+  try{
+    return JSON.parse(raw);
+  }catch(err){
+    const type = res.headers && res.headers.get ? (res.headers.get('content-type') || '未知类型') : '未知类型';
+    const snippet = raw.replace(/\s+/g, ' ').trim().slice(0, 160);
+    const extra = snippet ? ` 内容片段：${snippet}` : '';
+    throw new Error(`${context}：服务器返回了无法解析的响应（${res.status} ${res.statusText}，${type}）。${extra}`);
+  }
+}
 
 async function authGuard(){
   const r = await fetch('/auth/status');
   if(r.status === 401){ location.href = '/login'; return false; }
-  const j = await r.json();
+  const j = await parseJsonResponse(r, '获取登录状态');
   const bar = document.getElementById('userbar');
   const adminLink = j.role==='admin' ? ` | <a class="pill" href="/admin/settings">后台</a>` : '';
   bar.innerHTML = `已登录：${(j.user||'')}${adminLink} <a class="pill" href="/logout_page" style="margin-left:8px">退出</a>`;
@@ -268,7 +282,7 @@ async function authGuard(){
 
 async function loadWorkflows(){
   const sel = document.getElementById('wfSelect');
-  const resp = await fetch('/api/workflows'); const j = await resp.json();
+  const resp = await fetch('/api/workflows'); const j = await parseJsonResponse(resp, '加载工作流列表');
   sel.innerHTML = '';
   (j.items||[]).forEach(it=>{ const o=document.createElement('option'); o.value=it.workflow; o.textContent=it.workflow+(it.has_form?'':' (无表单)'); sel.appendChild(o)});
   if(j.items&&j.items.length){ sel.value = j.items[0].workflow; document.getElementById('wfInput').value = sel.value; await loadForm(sel.value); }
@@ -321,7 +335,7 @@ function startSubmitCooldown(seconds, prefixText){
 
 async function loadForm(wfname){
   const area = document.getElementById('formFields'); area.innerHTML='';
-  const r = await fetch(`/api/workflows/${encodeURIComponent(wfname)}/form`); const j = await r.json();
+  const r = await fetch(`/api/workflows/${encodeURIComponent(wfname)}/form`); const j = await parseJsonResponse(r, '加载表单');
   const fields = (j.form && j.form.fields) || [];
   if(!fields.length){ area.innerHTML = '<div class="muted">该工作流暂未提供表单定义，可直接提交。</div>'; }
   fields.forEach(f=>renderField(area, f));
@@ -337,7 +351,19 @@ function bindSubmit(){
     let cooldownStarted = false;
     try{
       const res = await fetch('/api/jobs', {method:'POST', body:fd});
-      const j = await res.json();
+      let j;
+      try{
+        j = await parseJsonResponse(res, '提交任务');
+      }catch(parseErr){
+        document.getElementById('createResp').textContent = `提交失败：${parseErr.message || parseErr}`;
+        return;
+      }
+      if(!res.ok && !j.ok){
+        const msg = j && (j.error || j.message);
+        const fallback = `服务器返回错误（${res.status} ${res.statusText}）`;
+        document.getElementById('createResp').textContent = `提交失败：${msg || fallback}`;
+        return;
+      }
       if(j.ok){
         if(j.job_id){ document.getElementById('jobId').value = j.job_id; }
         const successText = `提交成功，任务 ID：${j.job_id || ''}`.trim();
@@ -358,7 +384,7 @@ function bindSubmit(){
 async function updateQueue(){
   try{
     const r = await fetch('/api/queue');
-    const j = await r.json();
+    const j = await parseJsonResponse(r, '获取队列信息');
     if(j && typeof j.queued !== 'undefined'){
       document.getElementById('queueCount').textContent = j.queued;
     }
@@ -370,8 +396,17 @@ function bindPoll(){
     const id = document.getElementById('jobId').value.trim();
     if(!id) return;
     async function step(){
-      const r = await fetch(`/api/jobs/${id}/status`);
-      const j = await r.json();
+      let j;
+      try{
+        const r = await fetch(`/api/jobs/${id}/status`);
+        j = await parseJsonResponse(r, '获取任务状态');
+      }catch(err){
+        console.error(err);
+        document.getElementById('stateText').textContent = '获取任务状态失败';
+        const detailErr = document.getElementById('detailsPre');
+        if(detailErr) detailErr.textContent = `${err}`;
+        return;
+      }
       // 仅在详情中保留原始 JSON
       const detail = document.getElementById('detailsPre');
       if(detail) detail.textContent = JSON.stringify(j,null,2);
