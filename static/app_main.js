@@ -280,13 +280,83 @@ async function authGuard(){
   return true;
 }
 
+const LONG_WORKFLOW_PREFIXES = ['L15', 'L6'];
+
+function isLongWorkflowName(name){
+  const upper = (name || '').toUpperCase();
+  return LONG_WORKFLOW_PREFIXES.some(prefix => upper.startsWith(prefix.toUpperCase()));
+}
+
+function applyLongWorkflowNotice(workflowName){
+  const notice = document.getElementById('longWorkflowNotice');
+  if(!notice){ return; }
+  if(isLongWorkflowName(workflowName)){
+    notice.style.display = '';
+  }else{
+    notice.style.display = 'none';
+  }
+}
+
+function getCurrentWorkflow(){
+  const input = document.getElementById('wfInput');
+  return input ? (input.value || '') : '';
+}
+
+function getCooldownSecondsForWorkflow(workflowName){
+  return isLongWorkflowName(workflowName) ? 300 : 120;
+}
+
 async function loadWorkflows(){
   const sel = document.getElementById('wfSelect');
   const resp = await fetch('/api/workflows'); const j = await parseJsonResponse(resp, '加载工作流列表');
   sel.innerHTML = '';
   (j.items||[]).forEach(it=>{ const o=document.createElement('option'); o.value=it.workflow; o.textContent=it.workflow+(it.has_form?'':' (无表单)'); sel.appendChild(o)});
-  if(j.items&&j.items.length){ sel.value = j.items[0].workflow; document.getElementById('wfInput').value = sel.value; await loadForm(sel.value); }
-  sel.onchange = async ()=>{ document.getElementById('wfInput').value = sel.value; await loadForm(sel.value); };
+  if(j.items&&j.items.length){ sel.value = j.items[0].workflow; document.getElementById('wfInput').value = sel.value; await loadForm(sel.value); applyLongWorkflowNotice(sel.value); }
+  sel.onchange = async ()=>{ document.getElementById('wfInput').value = sel.value; applyLongWorkflowNotice(sel.value); await loadForm(sel.value); };
+}
+
+let submitCooldownTimer = null;
+
+function startSubmitCooldown(seconds, prefixText){
+  const submitBtn = document.querySelector('#jobForm button[type="submit"]');
+  const respEl = document.getElementById('createResp');
+  if(!submitBtn || !respEl){ return; }
+  if(submitCooldownTimer){
+    clearInterval(submitCooldownTimer);
+    submitCooldownTimer = null;
+  }
+  let remaining = Math.max(0, seconds|0);
+  const formatMessage = () => {
+    const countdownText = `您在“${remaining}”秒之后才能再次提交`;
+    if(prefixText){
+      const suffix = prefixText.endsWith('。') ? '' : '。';
+      respEl.textContent = `${prefixText}${suffix}${countdownText}`;
+    }else{
+      respEl.textContent = countdownText;
+    }
+  };
+  submitBtn.disabled = true;
+  formatMessage();
+  if(remaining <= 0){
+    submitBtn.disabled = false;
+    if(prefixText){ respEl.textContent = prefixText; }
+    return;
+  }
+  submitCooldownTimer = setInterval(() => {
+    remaining -= 1;
+    if(remaining <= 0){
+      clearInterval(submitCooldownTimer);
+      submitCooldownTimer = null;
+      submitBtn.disabled = false;
+      if(prefixText){
+        respEl.textContent = prefixText;
+      }else{
+        respEl.textContent = '';
+      }
+      return;
+    }
+    formatMessage();
+  }, 1000);
 }
 
 let submitCooldownTimer = null;
@@ -367,7 +437,10 @@ function bindSubmit(){
       if(j.ok){
         if(j.job_id){ document.getElementById('jobId').value = j.job_id; }
         const successText = `提交成功，任务 ID：${j.job_id || ''}`.trim();
-        startSubmitCooldown(120, successText);
+        const wfName = getCurrentWorkflow();
+        const cooldownSeconds = getCooldownSecondsForWorkflow(wfName);
+        startSubmitCooldown(cooldownSeconds, successText);
+        applyLongWorkflowNotice(wfName);
         cooldownStarted = true;
       }else{
         const msg = j.error ? `提交失败：${j.error}` : '提交失败，请稍后重试。';
@@ -412,6 +485,11 @@ function bindPoll(){
       if(detail) detail.textContent = JSON.stringify(j,null,2);
       // 顶部简要信息
       document.getElementById('stateText').textContent = j.status || '-';
+      if(j.workflow){
+        applyLongWorkflowNotice(j.workflow);
+      }else{
+        applyLongWorkflowNotice(getCurrentWorkflow());
+      }
       updateQueue();
       const pw = document.getElementById('progWrap');
       const pb = document.getElementById('progBar');

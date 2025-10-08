@@ -531,7 +531,10 @@ def _run_job(job_id):
     _update_job(job_id, status="running", progress=10, prompt_id=prompt_id)
 
     # poll history
-    deadline = time.time() + 600
+    wf_name = (j.get("workflow") or "").lower()
+    long_running_prefixes = ("l15", "l6")
+    wait_seconds = 1800 if any(wf_name.startswith(prefix) for prefix in long_running_prefixes) else 600
+    deadline = time.time() + wait_seconds
     outputs = []
     file_outputs = []  # 记录可下载产物，用于 ZIP
     while time.time() < deadline:
