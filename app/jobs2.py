@@ -265,6 +265,20 @@ def _prepare_file_field(field):
             existing.append({'label': entry, 'value': f'existing://{idx}/{entry}', 'preview': f"/api/assets/preview?dir={rel_dir}&name={entry}"})
     if existing:
         field['file_existing'] = existing
+        default = field.get('default')
+        if isinstance(default, str) and default and not default.startswith('existing://'):
+            # 尝试按文件名或标签匹配默认值
+            match = None
+            for item in existing:
+                if default == item.get('value'):
+                    match = item
+                    break
+                label = item.get('label')
+                if label and (default == label or default == os.path.basename(label)):
+                    match = item
+                    break
+            if match:
+                field['default'] = match.get('value')
     if spec.get('accept') and 'accept' not in field:
         field['accept'] = spec['accept']
     if 'allow_upload' not in field:
@@ -279,6 +293,109 @@ def _guess_file_kind(filename):
     if lower.endswith(('.mp4', '.mov', '.mkv', '.avi', '.webm')):
         return 'video'
     return 'image'
+
+
+_ERROR_STATUS_VALUES = {"error", "failed", "cancelled", "canceled"}
+
+
+def _stringify(value):
+    if value is None:
+        return ''
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value, ensure_ascii=False)
+    except Exception:
+        return str(value)
+
+
+def _localize_error_message(message):
+    text = _stringify(message).strip()
+    if not text:
+        return ''
+    lower = text.lower()
+    if 'input audio duration' in lower and 'infer audio duration' in lower:
+        return '音频时长与生成时长不匹配，请检查“音频时长(秒)”与“生成时长(秒)”字段。'
+    if 'bbox_s' in lower and 'referenced before assignment' in lower:
+        return '人脸检测失败，请使用清晰的正面人像图片或调整扩展比例后重试。'
+    if 'value not in list' in lower:
+        return text.replace('Value not in list', '选项不在允许列表中')
+    return text
+
+
+def _summarize_node_errors(node_errors):
+    if isinstance(node_errors, dict):
+        parts = []
+        for node_id, info in node_errors.items():
+            label = info.get('title') or info.get('label') or info.get('class_type') or f'节点 {node_id}'
+            errors = info.get('errors') or []
+            if not errors:
+                parts.append(f"{label}：出现未知错误")
+                continue
+            for err in errors:
+                message = err.get('message') or err.get('type') or ''
+                details = err.get('details')
+                extra_bits = []
+                if isinstance(details, dict):
+                    input_name = details.get('input_name')
+                    if input_name:
+                        extra_bits.append(f"字段 {input_name}")
+                    received = details.get('received_value')
+                    if received:
+                        extra_bits.append(f"收到值：{received}")
+                    input_config = details.get('input_config')
+                    if isinstance(input_config, (list, tuple)) and input_config:
+                        allowed = input_config[0]
+                        if isinstance(allowed, (list, tuple)) and allowed:
+                            allowed_str = '、'.join(str(v) for v in allowed)
+                            if allowed_str:
+                                extra_bits.append(f"允许值：{allowed_str}")
+                elif isinstance(details, (list, tuple)):
+                    detail_text = '、'.join(_stringify(v) for v in details if v)
+                    if detail_text:
+                        extra_bits.append(detail_text)
+                elif isinstance(details, str) and details:
+                    extra_bits.append(details)
+                if extra_bits:
+                    detail_text = '，'.join(extra_bits)
+                    message = f"{message}（{detail_text}）" if message else detail_text
+                parts.append(f"{label}：{_localize_error_message(message)}")
+        return '；'.join(parts)
+    if isinstance(node_errors, list):
+        return '；'.join(_localize_error_message(err) for err in node_errors if err)
+    return _localize_error_message(node_errors)
+
+
+def _history_status_failed(status_info):
+    if isinstance(status_info, dict):
+        status_value = status_info.get('status') or status_info.get('state')
+    else:
+        status_value = status_info
+    if not isinstance(status_value, str):
+        return False
+    return status_value.lower() in _ERROR_STATUS_VALUES
+
+
+def _extract_history_error(item):
+    if not isinstance(item, dict):
+        return ''
+    status_info = item.get('status')
+    if isinstance(status_info, dict):
+        for key in ('error', 'message', 'reason', 'info', 'detail'):
+            val = status_info.get(key)
+            if val:
+                return _stringify(val)
+        messages = status_info.get('messages')
+        if isinstance(messages, (list, tuple)):
+            joined = '；'.join(_stringify(m) for m in messages if m)
+            if joined:
+                return joined
+        if isinstance(messages, str) and messages:
+            return messages
+    for key in ('error', 'exception_message', 'exception', 'traceback'):
+        if item.get(key):
+            return _stringify(item.get(key))
+    return ''
 
 
 def _resolve_existing_file(field, value):
@@ -310,6 +427,74 @@ def _resolve_existing_file(field, value):
     if not os.path.isfile(candidate):
         return None
     return candidate
+
+
+_VIDEO_EXTS = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".mpg", ".mpeg"}
+_AUDIO_EXTS = {".wav", ".mp3", ".flac", ".aac", ".ogg", ".m4a"}
+
+
+def _normalize_artifact(data, *, default_kind=None):
+    if not isinstance(data, dict):
+        return None
+    filename = data.get("filename") or data.get("name")
+    if not filename:
+        return None
+    subfolder = data.get("subfolder", "")
+    typ = data.get("type", "output")
+    fmt = data.get("format") or data.get("mime") or data.get("mimetype")
+    kind = data.get("kind") or default_kind
+
+    if not kind and isinstance(fmt, str):
+        if fmt.startswith("video/"):
+            kind = "video"
+        elif fmt.startswith("audio/"):
+            kind = "audio"
+        elif fmt.startswith("image/"):
+            kind = "image"
+
+    if not kind:
+        ext = os.path.splitext(filename)[1].lower()
+        if ext in _VIDEO_EXTS:
+            kind = "video"
+        elif ext in _AUDIO_EXTS:
+            kind = "audio"
+        elif ext in {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"}:
+            kind = "image"
+
+    if not kind:
+        kind = "file"
+
+    artifact = {
+        "kind": kind,
+        "filename": filename,
+        "subfolder": subfolder,
+        "type": typ,
+    }
+
+    if fmt:
+        artifact["format"] = fmt
+    elif kind in {"video", "audio"}:
+        guess = mimetypes.guess_type(filename)[0]
+        if guess:
+            artifact["format"] = guess
+
+    if data.get("text") and kind == "text":
+        artifact["text"] = data.get("text")
+
+    return artifact
+
+
+def _add_artifact(artifact, outputs, file_outputs, seen):
+    if not artifact:
+        return
+    outputs.append(artifact)
+    fname = artifact.get("filename")
+    if fname:
+        key = (fname, artifact.get("subfolder", ""), artifact.get("type", "output"))
+        if key in seen:
+            return
+        seen.add(key)
+        file_outputs.append(artifact)
 
 
 def _deep_set(obj, path, value):
@@ -390,17 +575,10 @@ def _upload_to_comfy(file_path, kind='image', comfy_base=None):
     - Auto converts .webp to .png for compatibility
     Returns: filename on Comfy side
     """
-    import io as _io, os as _os, requests as _requests
+    import io as _io, os as _os, mimetypes as _mimetypes, requests as _requests
 
     if comfy_base is None:
         comfy_base = _comfy_url()
-
-    endpoint = 'image'
-    field = 'image'
-    if kind == 'audio':
-        endpoint = 'audio'; field = 'audio'
-    elif kind == 'video':
-        endpoint = 'video'; field = 'video'
 
     basename = _os.path.basename(file_path)
     ext = _os.path.splitext(basename)[1].lower()
@@ -416,24 +594,67 @@ def _upload_to_comfy(file_path, kind='image', comfy_base=None):
             _img.save(_buf, format='PNG')
             _buf.seek(0)
             newname = _os.path.splitext(basename)[0] + '.png'
-            files = {field: (newname, _buf, 'image/png')}
+            file_handle = _buf
+            upload_name = newname
+            mime = 'image/png'
         else:
             fp = open(file_path, 'rb')
-            files = {field: (basename, fp)}
+            file_handle = fp
+            upload_name = basename
+            mime = _mimetypes.guess_type(basename)[0]
 
-        url = f"{comfy_base}/upload/{endpoint}"
-        r = _requests.post(url, files=files, data={'type':'input','subfolder':''}, timeout=120)
+        def _build_candidates():
+            base_url = comfy_base.rstrip('/')
+            if kind == 'audio':
+                return [
+                    (f"{base_url}/upload/audio", 'audio'),
+                    (f"{base_url}/upload", 'audio'),
+                    (f"{base_url}/upload", 'file'),
+                    (f"{base_url}/upload/image", 'image'),
+                ]
+            if kind == 'video':
+                return [
+                    (f"{base_url}/upload/video", 'video'),
+                    (f"{base_url}/upload", 'video'),
+                    (f"{base_url}/upload", 'file'),
+                ]
+            # 默认 image
+            return [
+                (f"{base_url}/upload/image", 'image'),
+                (f"{base_url}/upload", 'image'),
+                (f"{base_url}/upload", 'file'),
+            ]
 
-        # 更可读的错误：必须 JSON
-        if r.status_code != 200 or not r.headers.get('content-type','').startswith('application/json'):
-            raise RuntimeError(f"Non-JSON from {url}: status={r.status_code} ct={r.headers.get('content-type')} body_snip={r.text[:200]!r}")
-        data = r.json()
-        name = data.get('name') or data.get('filename')
-        if not name and isinstance(data.get('files'), list) and data['files']:
-            name = data['files'][0].get('filename') or data['files'][0].get('name')
-        if name:
-            return name
-        raise RuntimeError(f"Unexpected /upload response: {data}")
+        last_error = None
+
+        for url, field in _build_candidates():
+            try:
+                if hasattr(file_handle, 'seek'):
+                    file_handle.seek(0)
+                files = {field: (upload_name, file_handle, mime)} if mime else {field: (upload_name, file_handle)}
+                r = _requests.post(url, files=files, data={'type': 'input', 'subfolder': ''}, timeout=120)
+            except _requests.RequestException as exc:
+                last_error = f"请求 {url} 失败：{exc}"
+                continue
+
+            ct = r.headers.get('content-type', '')
+            if r.status_code == 200 and ct.startswith('application/json'):
+                data = r.json() or {}
+                name = data.get('name') or data.get('filename')
+                if not name and isinstance(data.get('files'), list) and data['files']:
+                    name = data['files'][0].get('filename') or data['files'][0].get('name')
+                if name:
+                    return name
+                last_error = f"接口 {url} 返回异常数据：{data}"
+                continue
+
+            snippet = (r.text or '').replace('\n', ' ')[:200]
+            last_error = (
+                f"接口 {url} 返回 {r.status_code} {r.reason or ''}，Content-Type={ct or '未知'}"
+                + (f"，响应片段：{snippet}" if snippet else '')
+            )
+
+        raise RuntimeError(f"上传文件到 ComfyUI 失败：{last_error or '未知错误'}")
     finally:
         try:
             if fp and not fp.closed:
@@ -481,9 +702,14 @@ def _run_job(job_id):
     _update_job(job_id, status="running", progress=10, prompt_id=prompt_id)
 
     # poll history
-    deadline = time.time() + 600
+    wf_name = (j.get("workflow") or "").lower()
+    long_running_prefixes = ("l15", "l6", "l16_1", "l16_2")
+    wait_seconds = 1800 if any(wf_name.startswith(prefix) for prefix in long_running_prefixes) else 600
+    deadline = time.time() + wait_seconds
     outputs = []
     file_outputs = []  # 记录可下载产物，用于 ZIP
+    seen_files = set()
+    last_item = None
     while time.time() < deadline:
         try:
             h = requests.get(f"{comfy}/history/{prompt_id}", timeout=30)
@@ -506,43 +732,67 @@ def _run_job(job_id):
             _bump_progress(j, step=2, ceiling=90)
             time.sleep(1)
             continue
-        if item.get("node_errors"):
-            _update_job(job_id, status="error", error=str(item.get("node_errors")))
+        last_item = item
+        node_errors = item.get("node_errors")
+        if node_errors:
+            message = _summarize_node_errors(node_errors)
+            error_msg = message or "ComfyUI 返回节点错误"
+            _update_job(
+                job_id,
+                status="error",
+                error=_localize_error_message(error_msg) or error_msg,
+                progress=100,
+                done_at=time.time(),
+                outputs=[],
+                file_outputs=[],
+            )
+            return
+        status_info = item.get("status")
+        if _history_status_failed(status_info):
+            status_message = _extract_history_error(item) or "ComfyUI 返回错误状态"
+            localized = _localize_error_message(status_message) or status_message
+            _update_job(
+                job_id,
+                status="error",
+                error=localized,
+                progress=100,
+                done_at=time.time(),
+                outputs=[],
+                file_outputs=[],
+            )
             return
         outs = item.get("outputs") or {}
         for node_out in outs.values():
+            if not isinstance(node_out, dict):
+                continue
+
             for img in node_out.get("images", []):
-                artifact = {
-                    "kind": "image",
-                    "filename": img.get("filename"),
-                    "subfolder": img.get("subfolder", ""),
-                    "type": img.get("type", "output")
-                }
-                outputs.append(artifact)
-                file_outputs.append(artifact)
+                _add_artifact(_normalize_artifact(img, default_kind="image"), outputs, file_outputs, seen_files)
+
+            for video in node_out.get("videos", []):
+                _add_artifact(_normalize_artifact(video, default_kind="video"), outputs, file_outputs, seen_files)
 
             for audio in node_out.get("audio", []):
-                artifact = {
-                    "kind": "audio",
-                    "filename": audio.get("filename"),
-                    "subfolder": audio.get("subfolder", ""),
-                    "type": audio.get("type", "output"),
-                    "format": audio.get("format") or audio.get("mime", "")
-                }
-                outputs.append(artifact)
-                file_outputs.append(artifact)
+                _add_artifact(_normalize_artifact(audio, default_kind="audio"), outputs, file_outputs, seen_files)
+
+            for gif in node_out.get("gifs", []):
+                _add_artifact(_normalize_artifact(gif, default_kind="video"), outputs, file_outputs, seen_files)
 
             for file_item in node_out.get("files", []):
-                artifact = {
-                    "kind": file_item.get("kind") or "file",
-                    "filename": file_item.get("filename"),
-                    "subfolder": file_item.get("subfolder", ""),
-                    "type": file_item.get("type", "output"),
-                }
-                outputs.append(artifact)
-                file_outputs.append(artifact)
+                _add_artifact(_normalize_artifact(file_item), outputs, file_outputs, seen_files)
 
-            for text_item in node_out.get("text", []):
+            single_file = node_out.get("file")
+            if single_file:
+                _add_artifact(_normalize_artifact(single_file), outputs, file_outputs, seen_files)
+
+            single_image = node_out.get("image")
+            if single_image:
+                _add_artifact(_normalize_artifact(single_image, default_kind="image"), outputs, file_outputs, seen_files)
+
+            text_items = node_out.get("text") or []
+            if isinstance(text_items, dict):
+                text_items = [text_items]
+            for text_item in text_items:
                 if isinstance(text_item, dict):
                     content = text_item.get("text") or text_item.get("content") or ""
                     extra = {k: v for k, v in text_item.items() if k not in {"text", "content"}}
@@ -561,7 +811,51 @@ def _run_job(job_id):
             _bump_progress(j)
         time.sleep(1)
     if not outputs:
-        _update_job(job_id, status="timeout", progress=100, done_at=time.time())
+        if isinstance(last_item, dict):
+            node_errors = last_item.get("node_errors")
+            if node_errors:
+                message = _summarize_node_errors(node_errors)
+                error_msg = message or "ComfyUI 返回节点错误"
+                _update_job(
+                    job_id,
+                    status="error",
+                    error=_localize_error_message(error_msg) or error_msg,
+                    progress=100,
+                    done_at=time.time(),
+                    outputs=[],
+                    file_outputs=[],
+                )
+                return
+            status_info = last_item.get("status")
+            if _history_status_failed(status_info):
+                status_message = _extract_history_error(last_item) or "ComfyUI 返回错误状态"
+                localized = _localize_error_message(status_message) or status_message
+                _update_job(
+                    job_id,
+                    status="error",
+                    error=localized,
+                    progress=100,
+                    done_at=time.time(),
+                    outputs=[],
+                    file_outputs=[],
+                )
+                return
+            status_info = status_info if isinstance(status_info, dict) else {}
+        else:
+            status_info = {}
+        state_val = status_info.get("status") if isinstance(status_info, dict) else None
+        if state_val in {"success", "finished", "completed"}:
+            _update_job(job_id, status="finished", progress=100, outputs=[], done_at=time.time(), file_outputs=[])
+            return
+        _update_job(
+            job_id,
+            status="timeout",
+            progress=100,
+            done_at=time.time(),
+            error="轮询超时：长时间未收到服务器响应，任务可能仍在后台运行，请稍后查看历史记录。",
+            outputs=[],
+            file_outputs=file_outputs,
+        )
         return
     _update_job(job_id, status="finished", progress=100, outputs=outputs, done_at=time.time(), file_outputs=file_outputs)
 

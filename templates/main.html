@@ -17,10 +17,19 @@
         <h3>选择工作流并填写表单</h3>
         <div>
           <label>工作流</label>
-          <select id="wfSelect"></select>
+          <select id="wfSelect">
+            {% if workflows %}
+              {% for item in workflows %}
+                <option value="{{ item.workflow }}"{% if loop.first %} selected{% endif %}>{{ item.workflow }}{% if not item.has_form %} (无表单){% endif %}</option>
+              {% endfor %}
+            {% else %}
+              <option value="" disabled selected>暂无可用工作流</option>
+            {% endif %}
+          </select>
+          <div id="wfStatus" class="muted" style="display:none"></div>
         </div>
         <form id="jobForm">
-          <input type="hidden" name="workflow" id="wfInput" value="default.json" />
+          <input type="hidden" name="workflow" id="wfInput" value="{{ default_workflow or '' }}" />
           <input type="hidden" name="form_mode" value="1" />
           <div id="formFields"></div>
           <div style="margin-top:8px">
@@ -39,6 +48,10 @@
         <div id="topline" class="muted" style="margin:6px 0 8px">
           排队：<b id="queueCount">-</b> · 状态：<b id="stateText">-</b>
         </div>
+        <div id="longWorkflowNotice" class="notice" style="display:none">
+          由于生成视频时间较长，请耐心等待，不要连续点击生成按钮。
+        </div>
+        <div id="jobError" class="error-text" style="display:none;margin:6px 0"></div>
         <div id="progWrap" style="display:none;margin:8px 0 6px">
           <div style="height:10px;background:#0b1324;border:1px solid var(--border);border-radius:8px;overflow:hidden">
             <div id="progBar" style="height:100%;width:0;background:linear-gradient(90deg, var(--primary), var(--accent))"></div>
