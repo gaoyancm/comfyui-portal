@@ -280,7 +280,7 @@ async function authGuard(){
   return true;
 }
 
-const LONG_WORKFLOW_PREFIXES = ['L15', 'L6'];
+const LONG_WORKFLOW_PREFIXES = ['L15', 'L6', 'L16_1', 'L16_2'];
 
 function isLongWorkflowName(name){
   const upper = (name || '').toUpperCase();

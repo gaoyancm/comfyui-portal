@@ -600,7 +600,7 @@ def _run_job(job_id):
 
     # poll history
     wf_name = (j.get("workflow") or "").lower()
-    long_running_prefixes = ("l15", "l6")
+    long_running_prefixes = ("l15", "l6", "l16_1", "l16_2")
     wait_seconds = 1800 if any(wf_name.startswith(prefix) for prefix in long_running_prefixes) else 600
     deadline = time.time() + wait_seconds
     outputs = []
@@ -643,17 +643,6 @@ def _run_job(job_id):
 
             for video in node_out.get("videos", []):
                 _add_artifact(_normalize_artifact(video, default_kind="video"), outputs, file_outputs, seen_files)
-
-            for video in node_out.get("videos", []):
-                artifact = {
-                    "kind": "video",
-                    "filename": video.get("filename"),
-                    "subfolder": video.get("subfolder", ""),
-                    "type": video.get("type", "output"),
-                    "format": video.get("format") or video.get("mime", "")
-                }
-                outputs.append(artifact)
-                file_outputs.append(artifact)
 
             for audio in node_out.get("audio", []):
                 _add_artifact(_normalize_artifact(audio, default_kind="audio"), outputs, file_outputs, seen_files)
