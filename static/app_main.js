@@ -281,10 +281,39 @@ async function authGuard(){
 }
 
 const LONG_WORKFLOW_PREFIXES = ['L15', 'L6', 'L16_1', 'L16_2'];
+const LIMITED_PREVIEW_WORKFLOWS = ['L16_2'];
 
 function isLongWorkflowName(name){
   const upper = (name || '').toUpperCase();
   return LONG_WORKFLOW_PREFIXES.some(prefix => upper.startsWith(prefix.toUpperCase()));
+}
+
+function shouldLimitPreview(name){
+  const upper = (name || '').toUpperCase();
+  return LIMITED_PREVIEW_WORKFLOWS.some(prefix => upper.startsWith(prefix.toUpperCase()));
+}
+
+function filterOutputsForPreview(outputs, workflowName){
+  if(!shouldLimitPreview(workflowName)){
+    return outputs || [];
+  }
+  const result = [];
+  let firstImageShown = false;
+  (outputs || []).forEach(o => {
+    if(!o){ return; }
+    if(o.kind === 'video'){
+      result.push(o);
+      return;
+    }
+    if(o.kind === 'image'){
+      if(!firstImageShown){
+        result.push(o);
+        firstImageShown = true;
+      }
+      return;
+    }
+  });
+  return result.length ? result : (outputs || []);
 }
 
 function applyLongWorkflowNotice(workflowName){
@@ -566,8 +595,10 @@ function bindPoll(){
         pw.style.display = show ? 'block' : 'none';
       }
       if(j.ok && Array.isArray(j.outputs) && j.outputs.length){
-        const outputs = j.outputs || [];
-        const fileOutputs = (j.file_outputs || outputs).filter(o => o && o.filename);
+        const workflowName = j.workflow || getCurrentWorkflow();
+        const rawOutputs = j.outputs || [];
+        const outputs = filterOutputsForPreview(rawOutputs, workflowName);
+        const fileOutputs = (j.file_outputs || rawOutputs).filter(o => o && o.filename);
         const parts = outputs.map(o => {
           if(!o){ return ''; }
           if(o.kind === 'text' && o.text){
