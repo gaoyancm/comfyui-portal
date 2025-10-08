@@ -43,8 +43,11 @@ input:focus, textarea:focus, select:focus{border-color:#3f62a8; box-shadow:0 0 0
 .btn:hover{filter:brightness(1.05)}
 .btn.ghost{background:transparent; border-color:var(--border); color:var(--text)}
 .btn.danger{background:linear-gradient(90deg, #ff6b7a, #ff4d65)}
+.btn:disabled{opacity:.6; cursor:not-allowed; filter:none}
+.btn:disabled:hover{filter:none}
 
 .muted{color:var(--muted)}
+.notice{margin:8px 0; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:rgba(106,164,255,.12); color:var(--accent); line-height:1.5;}
 pre{background:#0b1324; border:1px solid var(--border); border-radius:12px; padding:12px; overflow:auto}
 
 /* auth pages */
