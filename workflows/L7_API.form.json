@@ -13,7 +13,7 @@
     {"name": "height", "label": "高度", "type": "integer", "default": 720},
     {"name": "vae_name", "label": "VAE", "type": "text", "default": "ae.safetensors"},
     {"name": "unet_name", "label": "UNet", "type": "text", "default": "flux1-dev-fp8.safetensors"},
-    {"name": "lora_name", "label": "LoRA", "type": "text", "default": "F.1国风汉服_Flux_hanfu测试?.safetensors"},
+    {"name": "lora_name", "label": "LoRA", "type": "text", "default": "F.1国风汉服_Flux_hanfu测试版.safetensors"},
     {"name": "strength_model", "label": "LoRA 强度", "type": "number", "default": 1.0},
     {"name": "filename_prefix", "label": "保存前缀", "type": "text", "default": "ComfyUI"}
   ],
