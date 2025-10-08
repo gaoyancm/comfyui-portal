@@ -265,6 +265,20 @@ def _prepare_file_field(field):
             existing.append({'label': entry, 'value': f'existing://{idx}/{entry}', 'preview': f"/api/assets/preview?dir={rel_dir}&name={entry}"})
     if existing:
         field['file_existing'] = existing
+        default = field.get('default')
+        if isinstance(default, str) and default and not default.startswith('existing://'):
+            # 尝试按文件名或标签匹配默认值
+            match = None
+            for item in existing:
+                if default == item.get('value'):
+                    match = item
+                    break
+                label = item.get('label')
+                if label and (default == label or default == os.path.basename(label)):
+                    match = item
+                    break
+            if match:
+                field['default'] = match.get('value')
     if spec.get('accept') and 'accept' not in field:
         field['accept'] = spec['accept']
     if 'allow_upload' not in field:
@@ -390,17 +404,10 @@ def _upload_to_comfy(file_path, kind='image', comfy_base=None):
     - Auto converts .webp to .png for compatibility
     Returns: filename on Comfy side
     """
-    import io as _io, os as _os, requests as _requests
+    import io as _io, os as _os, mimetypes as _mimetypes, requests as _requests
 
     if comfy_base is None:
         comfy_base = _comfy_url()
-
-    endpoint = 'image'
-    field = 'image'
-    if kind == 'audio':
-        endpoint = 'audio'; field = 'audio'
-    elif kind == 'video':
-        endpoint = 'video'; field = 'video'
 
     basename = _os.path.basename(file_path)
     ext = _os.path.splitext(basename)[1].lower()
@@ -416,24 +423,67 @@ def _upload_to_comfy(file_path, kind='image', comfy_base=None):
             _img.save(_buf, format='PNG')
             _buf.seek(0)
             newname = _os.path.splitext(basename)[0] + '.png'
-            files = {field: (newname, _buf, 'image/png')}
+            file_handle = _buf
+            upload_name = newname
+            mime = 'image/png'
         else:
             fp = open(file_path, 'rb')
-            files = {field: (basename, fp)}
+            file_handle = fp
+            upload_name = basename
+            mime = _mimetypes.guess_type(basename)[0]
 
-        url = f"{comfy_base}/upload/{endpoint}"
-        r = _requests.post(url, files=files, data={'type':'input','subfolder':''}, timeout=120)
+        def _build_candidates():
+            base_url = comfy_base.rstrip('/')
+            if kind == 'audio':
+                return [
+                    (f"{base_url}/upload/audio", 'audio'),
+                    (f"{base_url}/upload", 'audio'),
+                    (f"{base_url}/upload", 'file'),
+                    (f"{base_url}/upload/image", 'image'),
+                ]
+            if kind == 'video':
+                return [
+                    (f"{base_url}/upload/video", 'video'),
+                    (f"{base_url}/upload", 'video'),
+                    (f"{base_url}/upload", 'file'),
+                ]
+            # 默认 image
+            return [
+                (f"{base_url}/upload/image", 'image'),
+                (f"{base_url}/upload", 'image'),
+                (f"{base_url}/upload", 'file'),
+            ]
 
-        # 更可读的错误：必须 JSON
-        if r.status_code != 200 or not r.headers.get('content-type','').startswith('application/json'):
-            raise RuntimeError(f"Non-JSON from {url}: status={r.status_code} ct={r.headers.get('content-type')} body_snip={r.text[:200]!r}")
-        data = r.json()
-        name = data.get('name') or data.get('filename')
-        if not name and isinstance(data.get('files'), list) and data['files']:
-            name = data['files'][0].get('filename') or data['files'][0].get('name')
-        if name:
-            return name
-        raise RuntimeError(f"Unexpected /upload response: {data}")
+        last_error = None
+
+        for url, field in _build_candidates():
+            try:
+                if hasattr(file_handle, 'seek'):
+                    file_handle.seek(0)
+                files = {field: (upload_name, file_handle, mime)} if mime else {field: (upload_name, file_handle)}
+                r = _requests.post(url, files=files, data={'type': 'input', 'subfolder': ''}, timeout=120)
+            except _requests.RequestException as exc:
+                last_error = f"请求 {url} 失败：{exc}"
+                continue
+
+            ct = r.headers.get('content-type', '')
+            if r.status_code == 200 and ct.startswith('application/json'):
+                data = r.json() or {}
+                name = data.get('name') or data.get('filename')
+                if not name and isinstance(data.get('files'), list) and data['files']:
+                    name = data['files'][0].get('filename') or data['files'][0].get('name')
+                if name:
+                    return name
+                last_error = f"接口 {url} 返回异常数据：{data}"
+                continue
+
+            snippet = (r.text or '').replace('\n', ' ')[:200]
+            last_error = (
+                f"接口 {url} 返回 {r.status_code} {r.reason or ''}，Content-Type={ct or '未知'}"
+                + (f"，响应片段：{snippet}" if snippet else '')
+            )
+
+        raise RuntimeError(f"上传文件到 ComfyUI 失败：{last_error or '未知错误'}")
     finally:
         try:
             if fp and not fp.closed:
@@ -481,7 +531,10 @@ def _run_job(job_id):
     _update_job(job_id, status="running", progress=10, prompt_id=prompt_id)
 
     # poll history
-    deadline = time.time() + 600
+    wf_name = (j.get("workflow") or "").lower()
+    long_running_prefixes = ("l15", "l6")
+    wait_seconds = 1800 if any(wf_name.startswith(prefix) for prefix in long_running_prefixes) else 600
+    deadline = time.time() + wait_seconds
     outputs = []
     file_outputs = []  # 记录可下载产物，用于 ZIP
     while time.time() < deadline:
