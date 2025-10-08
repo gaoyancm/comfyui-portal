@@ -47,6 +47,7 @@ input:focus, textarea:focus, select:focus{border-color:#3f62a8; box-shadow:0 0 0
 .btn:disabled:hover{filter:none}
 
 .muted{color:var(--muted)}
+.error-text{color:var(--danger);}
 .notice{margin:8px 0; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:rgba(106,164,255,.12); color:var(--accent); line-height:1.5;}
 pre{background:#0b1324; border:1px solid var(--border); border-radius:12px; padding:12px; overflow:auto}
 
