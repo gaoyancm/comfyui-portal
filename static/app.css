@@ -70,6 +70,7 @@ th{background:#0b1324; color:var(--muted); text-align:left}
 .artifact{display:inline-block; vertical-align:top; margin:6px; padding:10px; border:1px solid var(--border); border-radius:12px; background:#0b1324b3; max-width:260px; min-width:200px;}
 .artifact img.thumb{display:block; margin:0 auto 8px;}
 .artifact audio{width:100%; margin:8px 0;}
+.artifact video{width:100%; margin:8px 0; border-radius:8px; background:#000;}
 .artifact-caption{font-size:13px; color:var(--muted); margin-bottom:6px;}
 .artifact-text{max-width:420px; display:block;}
 .artifact-text pre{margin:0; white-space:pre-wrap; word-break:break-word;}

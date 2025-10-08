@@ -573,6 +573,12 @@ function bindPoll(){
           if(o.kind === 'text' && o.text){
             return `<div class=\"artifact artifact-text\"><div class=\"artifact-caption\">文本输出</div><pre>${escapeHtml(o.text)}</pre></div>`;
           }
+          if(o.kind === 'video' && o.filename){
+            const url = `/api/jobs/${id}/comfy/view?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;
+            const dl = `/api/jobs/${id}/download?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;
+            const type = o.format || 'video/mp4';
+            return `<div class=\"artifact artifact-video\"><div class=\"artifact-caption\">视频输出：${escapeHtml(o.filename || '')}</div><video controls preload=\"metadata\" src=\"${url}\" type=\"${escapeHtml(type)}\"></video><div><a href=\"${dl}\">下载</a></div></div>`;
+          }
           if(o.kind === 'audio' && o.filename){
             const url = `/api/jobs/${id}/comfy/view?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;
             const dl = `/api/jobs/${id}/download?filename=${encodeURIComponent(o.filename)}&subfolder=${encodeURIComponent(o.subfolder||'')}&type=${encodeURIComponent(o.type||'output')}`;

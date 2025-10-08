@@ -574,6 +574,17 @@ def _run_job(job_id):
                 outputs.append(artifact)
                 file_outputs.append(artifact)
 
+            for video in node_out.get("videos", []):
+                artifact = {
+                    "kind": "video",
+                    "filename": video.get("filename"),
+                    "subfolder": video.get("subfolder", ""),
+                    "type": video.get("type", "output"),
+                    "format": video.get("format") or video.get("mime", "")
+                }
+                outputs.append(artifact)
+                file_outputs.append(artifact)
+
             for audio in node_out.get("audio", []):
                 artifact = {
                     "kind": "audio",
