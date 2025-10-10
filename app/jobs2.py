@@ -16,7 +16,7 @@ _flask_app = None  # set via attach_app(app)
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 JOBS_STATE_DIR = os.path.join(DATA_DIR, "jobs")
-MAX_HISTORY_ITEMS = 500
+MAX_HISTORY_ITEMS = 200
 
 # Allowlisted local preview directories
 ALLOWED_PREVIEW_DIRS = {
