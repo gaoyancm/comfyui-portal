@@ -10,6 +10,14 @@ function escapeHtml(str){
     .replace(/'/g, '&#39;');
 }
 
+function isProbablyImageFile(file){
+  if(!file){ return false; }
+  const type = (file.type || '').toLowerCase();
+  if(type.startsWith('image/')){ return true; }
+  const name = (file.name || '').toLowerCase();
+  return /(\.png|\.jpg|\.jpeg|\.bmp|\.gif|\.webp|\.tif|\.tiff)$/i.test(name);
+}
+
 function renderField(container, f){
   const wrap = document.createElement('div');
   wrap.className = 'field';
@@ -245,19 +253,112 @@ function renderField(container, f){
 
     wrap.appendChild(pickRow);
 
+    const progressWrap = document.createElement('div');
+    progressWrap.className = 'dir-progress';
+    progressWrap.style.display = 'none';
+
+    const progressTrack = document.createElement('div');
+    progressTrack.className = 'dir-progress-track';
+    const progressFill = document.createElement('div');
+    progressFill.className = 'dir-progress-fill';
+    progressTrack.appendChild(progressFill);
+    progressWrap.appendChild(progressTrack);
+
+    const progressText = document.createElement('div');
+    progressText.className = 'dir-progress-text muted';
+    progressWrap.appendChild(progressText);
+
+    wrap.appendChild(progressWrap);
+
+    const previewWrap = document.createElement('div');
+    previewWrap.className = 'dir-preview';
+    previewWrap.style.display = 'none';
+
+    const previewImg = document.createElement('img');
+    previewImg.className = 'dir-preview-img';
+    previewImg.style.display = 'none';
+    previewWrap.appendChild(previewImg);
+
+    const previewInfo = document.createElement('div');
+    previewInfo.className = 'dir-preview-info';
+    previewWrap.appendChild(previewInfo);
+
+    wrap.appendChild(previewWrap);
+
+    const state = {
+      dirInput,
+      hidden,
+      info,
+      progressWrap,
+      progressFill,
+      progressText,
+      previewWrap,
+      previewImg,
+      previewInfo,
+      previewUrl: null,
+      sortedFiles: [],
+      lastImageFile: null,
+      lastImagePath: '',
+      folderName: '',
+      totalBytes: 0,
+      progressHideTimer: null,
+    };
+
+    const revokePreview = () => {
+      if(state.previewUrl){
+        URL.revokeObjectURL(state.previewUrl);
+        state.previewUrl = null;
+      }
+    };
+
+    const resetPreview = () => {
+      revokePreview();
+      state.previewWrap.style.display = 'none';
+      state.previewImg.style.display = 'none';
+      state.previewImg.removeAttribute('src');
+      state.previewImg.alt = '';
+      state.previewInfo.textContent = '';
+    };
+
+    const resetProgress = () => {
+      if(state.progressHideTimer){
+        clearTimeout(state.progressHideTimer);
+        state.progressHideTimer = null;
+      }
+      state.progressWrap.style.display = 'none';
+      state.progressWrap.classList.remove('error');
+      state.progressFill.style.width = '0%';
+      state.progressText.textContent = '';
+    };
+
+    state.revokePreview = revokePreview;
+    state.resetPreview = resetPreview;
+    state.resetProgress = resetProgress;
+
     const updateInfo = () => {
       const files = Array.from(dirInput.files || []);
-      if(!files.length){
-        hidden.value = '';
-        info.textContent = '未选择文件夹';
-        info.classList.add('empty');
-        return;
-      }
       files.sort((a, b) => {
         const ap = (a.webkitRelativePath || a.name || '').toLowerCase();
         const bp = (b.webkitRelativePath || b.name || '').toLowerCase();
         return ap.localeCompare(bp);
       });
+      state.sortedFiles = files;
+      state.totalBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
+
+      const imagesOnly = files.filter(isProbablyImageFile);
+      state.lastImageFile = imagesOnly.length ? imagesOnly[imagesOnly.length - 1] : null;
+      state.lastImagePath = state.lastImageFile ? (state.lastImageFile.webkitRelativePath || state.lastImageFile.name || '') : '';
+
+      resetPreview();
+      resetProgress();
+
+      if(!files.length){
+        hidden.value = '';
+        info.textContent = '未选择文件夹';
+        info.classList.add('empty');
+        state.folderName = '';
+        return;
+      }
       const sample = files[0];
       const relPath = (sample && (sample.webkitRelativePath || sample.name || '')).replace(/\\+/g, '/');
       let folder = '';
@@ -267,6 +368,7 @@ function renderField(container, f){
       if(!folder && sample && sample.name){
         folder = sample.name.replace(/\.[^/.]+$/, '');
       }
+      state.folderName = folder || '';
       if(folder){
         hidden.value = `dir://${folder}`;
         info.textContent = `已选择文件夹：${folder}（${files.length} 个文件）`;
@@ -290,8 +392,18 @@ function renderField(container, f){
       hidden.value = '';
       info.textContent = '未选择文件夹';
       info.classList.add('empty');
+      state.sortedFiles = [];
+      state.lastImageFile = null;
+      state.lastImagePath = '';
+      state.folderName = '';
+      state.totalBytes = 0;
+      resetPreview();
+      resetProgress();
     });
     wrap.appendChild(clearBtn);
+
+    dirInput.dataset.directoryField = '1';
+    dirInput._dirState = state;
 
     if(f.help){
       const hint = document.createElement('div');
@@ -350,20 +462,159 @@ function renderField(container, f){
   container.appendChild(wrap);
 }
 
-async function parseJsonResponse(res, context){
-  const raw = await res.text();
+function shouldTrackDirectoryUpload(workflowName){
+  const upper = (workflowName || '').toUpperCase();
+  return upper.startsWith('L16_3_API');
+}
+
+function getDirectoryStates(form){
+  return Array.from(form.querySelectorAll('input[type="file"][data-directory="1"]'))
+    .map(input => input && input._dirState)
+    .filter(state => state && state.dirInput);
+}
+
+function startDirectoryUploadProgress(states){
+  states.forEach(state => {
+    if(!state || !(state.dirInput.files && state.dirInput.files.length)){ return; }
+    state.resetPreview();
+    state.resetProgress();
+    state.progressWrap.style.display = 'flex';
+    state.progressWrap.classList.remove('error');
+    state.progressFill.style.width = '0%';
+    const count = state.sortedFiles ? state.sortedFiles.length : 0;
+    const countText = count ? ` ${count} 张图片` : '';
+    state.progressText.textContent = `正在上传${countText}... 0%`;
+  });
+}
+
+function updateDirectoryUploadProgress(states, loaded, total){
+  const computable = typeof total === 'number' && total > 0;
+  const percent = computable ? Math.min(100, Math.round((loaded / total) * 100)) : null;
+  states.forEach(state => {
+    if(!state || !(state.dirInput.files && state.dirInput.files.length)){ return; }
+    state.progressWrap.style.display = 'flex';
+    state.progressWrap.classList.remove('error');
+    const count = state.sortedFiles ? state.sortedFiles.length : 0;
+    const countText = count ? ` ${count} 张图片` : '';
+    if(percent !== null){
+      state.progressFill.style.width = `${percent}%`;
+      state.progressText.textContent = `正在上传${countText}... ${percent}%`;
+    }else{
+      state.progressText.textContent = `正在上传${countText}...`;
+    }
+  });
+}
+
+function markDirectoryUploadError(states, message){
+  const text = message ? `上传失败：${message}` : '上传失败，请重试';
+  states.forEach(state => {
+    if(!state || !(state.dirInput.files && state.dirInput.files.length)){ return; }
+    if(state.progressHideTimer){
+      clearTimeout(state.progressHideTimer);
+      state.progressHideTimer = null;
+    }
+    state.progressWrap.style.display = 'flex';
+    state.progressWrap.classList.add('error');
+    state.progressFill.style.width = '100%';
+    state.progressText.textContent = text;
+  });
+}
+
+function showDirectoryLastFramePreview(state){
+  if(!state){ return; }
+  const count = state.sortedFiles ? state.sortedFiles.length : 0;
+  const countText = count ? `共 ${count} 张图片，` : '';
+  const file = state.lastImageFile;
+  if(file && isProbablyImageFile(file)){
+    state.revokePreview();
+    const url = URL.createObjectURL(file);
+    state.previewUrl = url;
+    state.previewImg.src = url;
+    state.previewImg.alt = state.lastImagePath || file.name || '';
+    state.previewImg.style.display = 'block';
+    state.previewInfo.textContent = `${countText}最后一帧：${state.lastImagePath || file.name || ''}`;
+    state.previewWrap.style.display = 'flex';
+    return;
+  }
+  if(count){
+    state.previewImg.style.display = 'none';
+    state.previewImg.removeAttribute('src');
+    state.previewInfo.textContent = `${countText}未检测到可预览的图像。`;
+    state.previewWrap.style.display = 'flex';
+    return;
+  }
+  state.resetPreview();
+}
+
+function completeDirectoryUploadSuccess(states){
+  states.forEach(state => {
+    if(!state || !(state.dirInput.files && state.dirInput.files.length)){ return; }
+    if(state.progressHideTimer){
+      clearTimeout(state.progressHideTimer);
+      state.progressHideTimer = null;
+    }
+    state.progressWrap.style.display = 'flex';
+    state.progressWrap.classList.remove('error');
+    state.progressFill.style.width = '100%';
+    state.progressText.textContent = '上传完成';
+    showDirectoryLastFramePreview(state);
+    state.progressHideTimer = setTimeout(() => {
+      if(state.progressWrap){
+        state.progressWrap.style.display = 'none';
+      }
+      state.progressHideTimer = null;
+    }, 800);
+  });
+}
+
+function uploadFormWithProgress(fd, onProgress){
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/jobs');
+    xhr.responseType = 'text';
+    xhr.upload.onprogress = event => {
+      if(typeof onProgress === 'function'){
+        const loaded = typeof event.loaded === 'number' ? event.loaded : 0;
+        const total = typeof event.total === 'number' ? event.total : 0;
+        onProgress(loaded, total);
+      }
+    };
+    xhr.onload = () => {
+      const status = xhr.status;
+      const statusText = xhr.statusText || '';
+      const contentType = xhr.getResponseHeader('content-type') || '未知类型';
+      let data;
+      try{
+        data = parseJsonText(xhr.responseText || '', status, statusText, contentType, '提交任务');
+      }catch(err){
+        reject(err);
+        return;
+      }
+      resolve({ status, statusText, data });
+    };
+    xhr.onerror = () => reject(new Error('网络错误，上传失败'));
+    xhr.send(fd);
+  });
+}
+
+function parseJsonText(raw, status, statusText, contentType, context){
   if(!raw){
-    if(res.ok){ return {}; }
-    throw new Error(`${context}：服务器返回空响应（${res.status} ${res.statusText}）`);
+    if(status >= 200 && status < 300){ return {}; }
+    throw new Error(`${context}：服务器返回空响应（${status} ${statusText}）`);
   }
   try{
     return JSON.parse(raw);
   }catch(err){
-    const type = res.headers && res.headers.get ? (res.headers.get('content-type') || '未知类型') : '未知类型';
     const snippet = raw.replace(/\s+/g, ' ').trim().slice(0, 160);
     const extra = snippet ? ` 内容片段：${snippet}` : '';
-    throw new Error(`${context}：服务器返回了无法解析的响应（${res.status} ${res.statusText}，${type}）。${extra}`);
+    throw new Error(`${context}：服务器返回了无法解析的响应（${status} ${statusText}，${contentType || '未知类型'}）。${extra}`);
   }
+}
+
+async function parseJsonResponse(res, context){
+  const raw = await res.text();
+  const type = res.headers && res.headers.get ? (res.headers.get('content-type') || '未知类型') : '未知类型';
+  return parseJsonText(raw, res.status, res.statusText, type, context);
 }
 
 async function authGuard(){
@@ -681,35 +932,71 @@ function bindSubmit(){
     }
     const fd = new FormData(e.target);
     let cooldownStarted = false;
+    const dirStates = getDirectoryStates(form);
+    const trackDirUpload = shouldTrackDirectoryUpload(wfName)
+      && dirStates.some(state => state && state.dirInput.files && state.dirInput.files.length);
     try{
-      const res = await fetch('/api/jobs', {method:'POST', body:fd});
       let j;
-      try{
-        j = await parseJsonResponse(res, '提交任务');
-      }catch(parseErr){
-        document.getElementById('createResp').textContent = `提交失败：${parseErr.message || parseErr}`;
-        return;
+      if(trackDirUpload){
+        startDirectoryUploadProgress(dirStates);
+        let uploadRes;
+        try{
+          uploadRes = await uploadFormWithProgress(fd, (loaded, total) => {
+            updateDirectoryUploadProgress(dirStates, loaded, total);
+          });
+        }catch(uploadErr){
+          const message = uploadErr && uploadErr.message ? uploadErr.message : String(uploadErr);
+          if(respBox){ respBox.textContent = `提交失败：${message}`; }
+          markDirectoryUploadError(dirStates, message);
+          return;
+        }
+        j = uploadRes.data;
+        if(!(uploadRes.status >= 200 && uploadRes.status < 300) && !j.ok){
+          const msg = j && (j.error || j.message);
+          const statusLabel = `${uploadRes.status || ''} ${uploadRes.statusText || ''}`.trim();
+          const fallback = statusLabel ? `服务器返回错误（${statusLabel}）` : '服务器返回错误';
+          if(respBox){ respBox.textContent = `提交失败：${msg || fallback}`; }
+          markDirectoryUploadError(dirStates, msg || fallback);
+          return;
+        }
+      }else{
+        const res = await fetch('/api/jobs', {method:'POST', body:fd});
+        try{
+          j = await parseJsonResponse(res, '提交任务');
+        }catch(parseErr){
+          if(respBox){ respBox.textContent = `提交失败：${parseErr.message || parseErr}`; }
+          return;
+        }
+        if(!res.ok && !j.ok){
+          const msg = j && (j.error || j.message);
+          const fallback = `服务器返回错误（${res.status} ${res.statusText}）`;
+          if(respBox){ respBox.textContent = `提交失败：${msg || fallback}`; }
+          return;
+        }
       }
-      if(!res.ok && !j.ok){
-        const msg = j && (j.error || j.message);
-        const fallback = `服务器返回错误（${res.status} ${res.statusText}）`;
-        document.getElementById('createResp').textContent = `提交失败：${msg || fallback}`;
-        return;
-      }
-      if(j.ok){
+      if(j && j.ok){
+        if(trackDirUpload){
+          completeDirectoryUploadSuccess(dirStates);
+        }
         if(j.job_id){ document.getElementById('jobId').value = j.job_id; }
         const successText = `提交成功，任务 ID：${j.job_id || ''}`.trim();
-        const wfName = getCurrentWorkflow();
         const cooldownSeconds = getCooldownSecondsForWorkflow(wfName);
         startSubmitCooldown(cooldownSeconds, successText);
         applyLongWorkflowNotice(wfName);
         cooldownStarted = true;
       }else{
-        const msg = j.error ? `提交失败：${j.error}` : '提交失败，请稍后重试。';
-        document.getElementById('createResp').textContent = msg;
+        const msg = j && j.error ? `提交失败：${j.error}` : '提交失败，请稍后重试。';
+        if(respBox){ respBox.textContent = msg; }
+        if(trackDirUpload){
+          markDirectoryUploadError(dirStates, (j && j.error) || '提交失败，请稍后重试。');
+        }
       }
     }catch(err){
-      document.getElementById('createResp').textContent = `提交失败：${err}`;
+      const message = err && err.message ? err.message : String(err);
+      if(respBox){ respBox.textContent = `提交失败：${message}`; }
+      if(trackDirUpload){
+        markDirectoryUploadError(dirStates, message);
+      }
     }finally{
       if(!cooldownStarted && submitBtn){ submitBtn.disabled = false; }
     }

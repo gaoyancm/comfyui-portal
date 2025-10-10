@@ -88,4 +88,13 @@ th{background:#0b1324; color:var(--muted); text-align:left}
 .field-directory .pick-directory:hover{filter:none; border-color:#3f62a8; background:#0f1a2e;}
 .field-directory .dir-info{font-size:14px; color:var(--text);}
 .field-directory .dir-info.empty{color:var(--muted);}
+.field-directory .dir-progress{display:none; flex-direction:column; align-items:flex-start; gap:6px; margin-top:10px;}
+.field-directory .dir-progress-track{width:100%; height:8px; border-radius:999px; border:1px solid var(--border); background:#0b1324; overflow:hidden;}
+.field-directory .dir-progress-fill{height:100%; width:0; background:linear-gradient(90deg, var(--primary), var(--accent)); transition:width .25s ease;}
+.field-directory .dir-progress.error .dir-progress-fill{background:var(--danger);}
+.field-directory .dir-progress-text{font-size:12px; color:var(--muted);}
+.field-directory .dir-progress.error .dir-progress-text{color:var(--danger);}
+.field-directory .dir-preview{display:none; margin-top:12px; gap:12px; align-items:flex-start;}
+.field-directory .dir-preview-img{max-width:220px; border-radius:10px; border:1px solid var(--border);}
+.field-directory .dir-preview-info{font-size:12px; color:var(--muted); line-height:1.5;}
 .field-directory .btn.ghost{margin-top:8px;}
