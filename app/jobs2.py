@@ -707,7 +707,7 @@ def _upload_directory_to_comfy(meta, comfy_base=None):
         rel_subfolder = '/'.join(sub_parts)
         target_subfolder = '/'.join(filter(None, [base_subfolder, rel_subfolder]))
         _upload_to_comfy(path, kind=content_kind, comfy_base=comfy_base, subfolder=target_subfolder)
-    return base_subfolder + '/'
+    return f"input/{base_subfolder}/"
 
 def _run_job(job_id):
     j = _get_job(job_id)
