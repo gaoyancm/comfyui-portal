@@ -82,3 +82,10 @@ th{background:#0b1324; color:var(--muted); text-align:left}
 .field-file .file-preview{margin-top:8px;}
 .field-file .file-preview-img{max-width:240px; border-radius:10px; border:1px solid var(--border); display:block;}
 .field-file .file-preview-audio{width:100%; max-width:260px; display:block;}
+
+.field-directory .directory-picker{display:flex; align-items:center; gap:12px; margin-top:6px;}
+.field-directory .pick-directory{background:#0b1324; border-color:var(--border); color:var(--text); padding:8px 16px; min-width:130px; text-align:center;}
+.field-directory .pick-directory:hover{filter:none; border-color:#3f62a8; background:#0f1a2e;}
+.field-directory .dir-info{font-size:14px; color:var(--text);}
+.field-directory .dir-info.empty{color:var(--muted);}
+.field-directory .btn.ghost{margin-top:8px;}

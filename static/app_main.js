@@ -208,6 +208,102 @@ function renderField(container, f){
     return;
   }
 
+  if(f.type === 'directory'){
+    wrap.classList.add('field-directory');
+
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = f.name;
+    hidden.value = f.default || '';
+    wrap.appendChild(hidden);
+
+    const dirInput = document.createElement('input');
+    dirInput.type = 'file';
+    dirInput.name = `${f.name}__dir`;
+    dirInput.multiple = true;
+    dirInput.setAttribute('webkitdirectory', '');
+    dirInput.setAttribute('mozdirectory', '');
+    dirInput.setAttribute('directory', '');
+    dirInput.style.display = 'none';
+    dirInput.tabIndex = -1;
+    if(f.accept){ dirInput.accept = f.accept; }
+    wrap.appendChild(dirInput);
+
+    const pickRow = document.createElement('div');
+    pickRow.className = 'directory-picker';
+
+    const pickBtn = document.createElement('button');
+    pickBtn.type = 'button';
+    pickBtn.className = 'btn pick-directory';
+    pickBtn.textContent = f.pick_label || '选择文件夹';
+    pickBtn.addEventListener('click', () => dirInput.click());
+    pickRow.appendChild(pickBtn);
+
+    const info = document.createElement('span');
+    info.className = 'dir-info empty';
+    pickRow.appendChild(info);
+
+    wrap.appendChild(pickRow);
+
+    const updateInfo = () => {
+      const files = Array.from(dirInput.files || []);
+      if(!files.length){
+        hidden.value = '';
+        info.textContent = '未选择文件夹';
+        info.classList.add('empty');
+        return;
+      }
+      files.sort((a, b) => {
+        const ap = (a.webkitRelativePath || a.name || '').toLowerCase();
+        const bp = (b.webkitRelativePath || b.name || '').toLowerCase();
+        return ap.localeCompare(bp);
+      });
+      const sample = files[0];
+      const relPath = (sample && (sample.webkitRelativePath || sample.name || '')).replace(/\\+/g, '/');
+      let folder = '';
+      if(relPath.includes('/')){
+        folder = relPath.split('/')[0];
+      }
+      if(!folder && sample && sample.name){
+        folder = sample.name.replace(/\.[^/.]+$/, '');
+      }
+      if(folder){
+        hidden.value = `dir://${folder}`;
+        info.textContent = `已选择文件夹：${folder}（${files.length} 个文件）`;
+        info.classList.remove('empty');
+      }else{
+        hidden.value = `dir://${files.length}`;
+        info.textContent = `已选择 ${files.length} 个文件`;
+        info.classList.remove('empty');
+      }
+    };
+    updateInfo();
+    dirInput.addEventListener('change', updateInfo);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'btn ghost';
+    clearBtn.textContent = '清除';
+    clearBtn.style.marginTop = '6px';
+    clearBtn.addEventListener('click', () => {
+      dirInput.value = '';
+      hidden.value = '';
+      info.textContent = '未选择文件夹';
+      info.classList.add('empty');
+    });
+    wrap.appendChild(clearBtn);
+
+    if(f.help){
+      const hint = document.createElement('div');
+      hint.className = 'muted';
+      hint.textContent = f.help;
+      wrap.appendChild(hint);
+    }
+
+    container.appendChild(wrap);
+    return;
+  }
+
   let input;
   switch(f.type){
     case 'textarea':
