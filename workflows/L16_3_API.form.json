@@ -4,8 +4,10 @@
     {
       "name": "image_directory",
       "label": "帧目录",
-      "type": "text",
-      "default": "output/frames/"
+      "type": "directory",
+      "accept": "image/*",
+      "help": "从本地选择包含连续帧图像的文件夹，将自动上传到服务器",
+      "default": ""
     },
     {
       "name": "image_load_cap",
@@ -136,7 +138,7 @@
   "mapping": [
     {
       "path": "294.inputs.directory",
-      "value": "$image_directory"
+      "value": "$file:image_directory"
     },
     {
       "path": "294.inputs.image_load_cap",
