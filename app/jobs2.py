@@ -576,7 +576,7 @@ def _upload_to_comfy(file_path, kind='image', comfy_base=None, subfolder=''):
     - Auto converts .webp to .png for compatibility
     Returns: filename on Comfy side
     """
-    import io as _io, os as _os, mimetypes as _mimetypes, requests as _requests
+    import io as _io, os as _os, mimetypes as _mimetypes, requests as _requests, time as _time
 
     if comfy_base is None:
         comfy_base = _comfy_url()
@@ -630,38 +630,51 @@ def _upload_to_comfy(file_path, kind='image', comfy_base=None, subfolder=''):
         last_error = None
 
         for url, field in _build_candidates():
-            try:
-                if hasattr(file_handle, 'seek'):
-                    file_handle.seek(0)
-                files = {field: (upload_name, file_handle, mime)} if mime else {field: (upload_name, file_handle)}
-                r = _requests.post(
-                    url,
-                    files=files,
-                    data={'type': 'input', 'subfolder': safe_subfolder},
-                    timeout=120,
+            for attempt in range(3):
+                try:
+                    if hasattr(file_handle, 'seek'):
+                        file_handle.seek(0)
+                    files = {field: (upload_name, file_handle, mime)} if mime else {field: (upload_name, file_handle)}
+                    r = _requests.post(
+                        url,
+                        files=files,
+                        data={'type': 'input', 'subfolder': safe_subfolder},
+                        timeout=180,
+                    )
+                except _requests.RequestException as exc:
+                    last_error = f"请求 {url} 失败（第 {attempt + 1} 次）：{exc}"
+                    if attempt < 2:
+                        _time.sleep(min(1 + attempt, 3))
+                        continue
+                    break
+
+                ct = r.headers.get('content-type', '')
+                if r.status_code == 200 and ct.startswith('application/json'):
+                    data = r.json() or {}
+                    name = data.get('name') or data.get('filename')
+                    if not name and isinstance(data.get('files'), list) and data['files']:
+                        name = data['files'][0].get('filename') or data['files'][0].get('name')
+                    if name:
+                        return name
+                    last_error = f"接口 {url} 返回异常数据：{data}"
+                    break
+
+                snippet = (r.text or '').replace('\n', ' ')[:200]
+                last_error = (
+                    f"接口 {url} 返回 {r.status_code} {r.reason or ''}，Content-Type={ct or '未知'}"
+                    + (f"，响应片段：{snippet}" if snippet else '')
                 )
-            except _requests.RequestException as exc:
-                last_error = f"请求 {url} 失败：{exc}"
-                continue
+                if r.status_code >= 500 and attempt < 2:
+                    _time.sleep(min(1 + attempt, 3))
+                    continue
+                break
 
-            ct = r.headers.get('content-type', '')
-            if r.status_code == 200 and ct.startswith('application/json'):
-                data = r.json() or {}
-                name = data.get('name') or data.get('filename')
-                if not name and isinstance(data.get('files'), list) and data['files']:
-                    name = data['files'][0].get('filename') or data['files'][0].get('name')
-                if name:
-                    return name
-                last_error = f"接口 {url} 返回异常数据：{data}"
-                continue
-
-            snippet = (r.text or '').replace('\n', ' ')[:200]
-            last_error = (
-                f"接口 {url} 返回 {r.status_code} {r.reason or ''}，Content-Type={ct or '未知'}"
-                + (f"，响应片段：{snippet}" if snippet else '')
-            )
-
-        raise RuntimeError(f"上传文件到 ComfyUI 失败：{last_error or '未知错误'}")
+        extra = last_error or '未知错误'
+        if safe_subfolder:
+            extra = f"子目录 {safe_subfolder}，{extra}"
+        raise RuntimeError(
+            f"上传文件到 ComfyUI 失败：文件 {upload_name}，{extra}"
+        )
     finally:
         try:
             if fp and not fp.closed:
