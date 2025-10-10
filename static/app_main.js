@@ -402,7 +402,7 @@ function renderField(container, f){
     });
     wrap.appendChild(clearBtn);
 
-    dirInput.dataset.directoryField = '1';
+    dirInput.setAttribute('data-directory', '1');
     dirInput._dirState = state;
 
     if(f.help){
