@@ -5,6 +5,7 @@ import io, zipfile
 from datetime import datetime
 from PIL import Image
 import mimetypes
+from werkzeug.utils import secure_filename
 
 jobs_bp = Blueprint("jobs", __name__)
 
@@ -15,7 +16,7 @@ _flask_app = None  # set via attach_app(app)
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 JOBS_STATE_DIR = os.path.join(DATA_DIR, "jobs")
-MAX_HISTORY_ITEMS = 500
+MAX_HISTORY_ITEMS = 200
 
 # Allowlisted local preview directories
 ALLOWED_PREVIEW_DIRS = {
@@ -568,14 +569,14 @@ def _comfy_url():
     return current_app.config["COMFY_URL"].rstrip('/')
 
 
-def _upload_to_comfy(file_path, kind='image', comfy_base=None):
+def _upload_to_comfy(file_path, kind='image', comfy_base=None, subfolder=''):
     """
     Upload local file to the selected Comfy server's input folder.
     - Supports endpoints: /upload/image|audio|video
     - Auto converts .webp to .png for compatibility
     Returns: filename on Comfy side
     """
-    import io as _io, os as _os, mimetypes as _mimetypes, requests as _requests
+    import io as _io, os as _os, mimetypes as _mimetypes, requests as _requests, time as _time
 
     if comfy_base is None:
         comfy_base = _comfy_url()
@@ -584,6 +585,7 @@ def _upload_to_comfy(file_path, kind='image', comfy_base=None):
     ext = _os.path.splitext(basename)[1].lower()
 
     fp = None
+    safe_subfolder = '/'.join([segment for segment in (subfolder or '').replace('\\', '/').split('/') if segment])
     try:
         # WEBP -> PNG
         if kind == 'image' and ext == '.webp':
@@ -628,39 +630,84 @@ def _upload_to_comfy(file_path, kind='image', comfy_base=None):
         last_error = None
 
         for url, field in _build_candidates():
-            try:
-                if hasattr(file_handle, 'seek'):
-                    file_handle.seek(0)
-                files = {field: (upload_name, file_handle, mime)} if mime else {field: (upload_name, file_handle)}
-                r = _requests.post(url, files=files, data={'type': 'input', 'subfolder': ''}, timeout=120)
-            except _requests.RequestException as exc:
-                last_error = f"请求 {url} 失败：{exc}"
-                continue
+            for attempt in range(3):
+                try:
+                    if hasattr(file_handle, 'seek'):
+                        file_handle.seek(0)
+                    files = {field: (upload_name, file_handle, mime)} if mime else {field: (upload_name, file_handle)}
+                    r = _requests.post(
+                        url,
+                        files=files,
+                        data={'type': 'input', 'subfolder': safe_subfolder},
+                        timeout=180,
+                    )
+                except _requests.RequestException as exc:
+                    last_error = f"请求 {url} 失败（第 {attempt + 1} 次）：{exc}"
+                    if attempt < 2:
+                        _time.sleep(min(1 + attempt, 3))
+                        continue
+                    break
 
-            ct = r.headers.get('content-type', '')
-            if r.status_code == 200 and ct.startswith('application/json'):
-                data = r.json() or {}
-                name = data.get('name') or data.get('filename')
-                if not name and isinstance(data.get('files'), list) and data['files']:
-                    name = data['files'][0].get('filename') or data['files'][0].get('name')
-                if name:
-                    return name
-                last_error = f"接口 {url} 返回异常数据：{data}"
-                continue
+                ct = r.headers.get('content-type', '')
+                if r.status_code == 200 and ct.startswith('application/json'):
+                    data = r.json() or {}
+                    name = data.get('name') or data.get('filename')
+                    if not name and isinstance(data.get('files'), list) and data['files']:
+                        name = data['files'][0].get('filename') or data['files'][0].get('name')
+                    if name:
+                        return name
+                    last_error = f"接口 {url} 返回异常数据：{data}"
+                    break
 
-            snippet = (r.text or '').replace('\n', ' ')[:200]
-            last_error = (
-                f"接口 {url} 返回 {r.status_code} {r.reason or ''}，Content-Type={ct or '未知'}"
-                + (f"，响应片段：{snippet}" if snippet else '')
-            )
+                snippet = (r.text or '').replace('\n', ' ')[:200]
+                last_error = (
+                    f"接口 {url} 返回 {r.status_code} {r.reason or ''}，Content-Type={ct or '未知'}"
+                    + (f"，响应片段：{snippet}" if snippet else '')
+                )
+                if r.status_code >= 500 and attempt < 2:
+                    _time.sleep(min(1 + attempt, 3))
+                    continue
+                break
 
-        raise RuntimeError(f"上传文件到 ComfyUI 失败：{last_error or '未知错误'}")
+        extra = last_error or '未知错误'
+        if safe_subfolder:
+            extra = f"子目录 {safe_subfolder}，{extra}"
+        raise RuntimeError(
+            f"上传文件到 ComfyUI 失败：文件 {upload_name}，{extra}"
+        )
     finally:
         try:
             if fp and not fp.closed:
                 fp.close()
         except Exception:
             pass
+
+
+def _upload_directory_to_comfy(meta, comfy_base=None):
+    files = meta.get("files") or []
+    if not files:
+        return None
+    label = meta.get("root_folder") or meta.get("field") or "frames"
+    slug = re.sub(r"[^0-9A-Za-z_-]+", "_", str(label or "")).strip("_")
+    if slug:
+        base_subfolder = f"portal_dirs/{uuid.uuid4().hex}_{slug}"
+    else:
+        base_subfolder = f"portal_dirs/{uuid.uuid4().hex}"
+    content_kind = meta.get("content_kind") or "image"
+    sorted_files = sorted(files, key=lambda item: (item.get("relative") or item.get("name") or "").lower())
+    for item in sorted_files:
+        path = item.get("path")
+        if not path or not os.path.isfile(path):
+            continue
+        rel = (item.get("relative") or item.get("name") or os.path.basename(path)).replace('\\', '/')
+        rel_parts = [p for p in rel.split('/') if p and p not in ('.', '..')]
+        if not rel_parts:
+            rel_parts = [secure_filename(os.path.basename(path)) or os.path.basename(path)]
+        sub_parts = rel_parts[:-1]
+        rel_subfolder = '/'.join(sub_parts)
+        target_subfolder = '/'.join(filter(None, [base_subfolder, rel_subfolder]))
+        _upload_to_comfy(path, kind=content_kind, comfy_base=comfy_base, subfolder=target_subfolder)
+    return f"input/{base_subfolder}/"
 
 def _run_job(job_id):
     j = _get_job(job_id)
@@ -680,6 +727,11 @@ def _run_job(job_id):
         upload_map = {}
         for meta in ov.get("_uploads", []):
             # meta: {field, name, path, kind}
+            if meta.get("kind") == "directory":
+                subfolder = _upload_directory_to_comfy(meta, comfy_base=comfy)
+                if subfolder:
+                    upload_map[meta.get("field")] = subfolder
+                continue
             kind = meta.get('kind') or _guess_file_kind(meta.get('name'))
             comfy_name = _upload_to_comfy(meta.get("path"), kind, comfy_base=comfy)
             upload_map[meta.get("field")] = comfy_name
@@ -916,12 +968,57 @@ def create_job():
     upload_dir = current_app.config["UPLOAD_DIR"]
     os.makedirs(upload_dir, exist_ok=True)
     files_meta = []
-    for key, storage in request.files.items():
-        field_name = key[:-len('__upload')] if key.endswith('__upload') else key
-        fname = f"{uuid.uuid4().hex}_{storage.filename}"
-        fpath = os.path.join(upload_dir, fname)
-        storage.save(fpath)
-        files_meta.append({"field": field_name, "name": storage.filename, "path": fpath})
+    for key, storages in request.files.lists():
+        if not storages:
+            continue
+        if key.endswith('__dir'):
+            field_name = key[:-len('__dir')]
+            dir_id = uuid.uuid4().hex
+            dir_root = os.path.join(upload_dir, f"dir_{dir_id}")
+            os.makedirs(dir_root, exist_ok=True)
+            saved_files = []
+            root_folder = None
+            for storage in storages:
+                raw_rel = (storage.filename or '').replace('\\', '/')
+                parts = [secure_filename(p) for p in raw_rel.split('/') if p and p not in ('.', '..')]
+                if not parts:
+                    name_only = secure_filename(storage.filename or f"file_{len(saved_files)}")
+                    if not name_only:
+                        name_only = f"file_{len(saved_files)}"
+                    parts = [name_only]
+                if root_folder is None:
+                    root_folder = parts[0]
+                trimmed_parts = parts[1:] if parts and parts[0] == root_folder else parts
+                if not trimmed_parts:
+                    trimmed_parts = parts[-1:]
+                relative_path = "/".join(trimmed_parts)
+                file_name = trimmed_parts[-1] if trimmed_parts else parts[-1]
+                target_path = os.path.join(dir_root, *trimmed_parts)
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                storage.save(target_path)
+                saved_files.append({
+                    "path": target_path,
+                    "relative": relative_path,
+                    "name": file_name,
+                    "original": "/".join(parts),
+                })
+            if saved_files:
+                files_meta.append({
+                    "field": field_name,
+                    "kind": "directory",
+                    "path": dir_root,
+                    "files": saved_files,
+                    "root_folder": root_folder,
+                    "content_kind": "image",
+                })
+            continue
+
+        for storage in storages:
+            field_name = key[:-len('__upload')] if key.endswith('__upload') else key
+            fname = f"{uuid.uuid4().hex}_{storage.filename}"
+            fpath = os.path.join(upload_dir, fname)
+            storage.save(fpath)
+            files_meta.append({"field": field_name, "name": storage.filename, "path": fpath})
 
     explicit_server = request.form.get("server") or request.args.get("server")
     form_default_server = None
@@ -940,11 +1037,17 @@ def create_job():
         form_default_server = form_def.get("server")
         file_specs = {}
         for fld in form_def.get("fields", []):
-            if fld.get('type') == 'file':
+            f_type = fld.get('type')
+            if f_type == 'file':
                 _prepare_file_field(fld)
+            if f_type in ('file', 'directory'):
                 rel_dirs = fld.get('file', {}).get('dirs', [])
                 abs_dirs = [os.path.normpath(os.path.join(PROJECT_ROOT, d)) for d in rel_dirs]
-                file_specs[fld.get('name')] = {"dirs": abs_dirs, "kind": fld.get('file', {}).get('kind', 'image')}
+                file_specs[fld.get('name')] = {
+                    "dirs": abs_dirs,
+                    "kind": fld.get('file', {}).get('kind', 'image'),
+                    "type": f_type,
+                }
 
         form_values = {}
         for fld in form_def.get("fields", []):
@@ -961,6 +1064,12 @@ def create_job():
         # annotate file uploads with kind information
         for meta in files_meta:
             spec = file_specs.get(meta["field"])
+            if meta.get("kind") == "directory":
+                if spec:
+                    meta["content_kind"] = spec.get("kind", 'image')
+                else:
+                    meta.setdefault("content_kind", "image")
+                continue
             if spec:
                 meta["kind"] = spec.get("kind", 'image')
             else:
