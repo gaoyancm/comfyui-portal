@@ -229,20 +229,28 @@ function renderField(container, f){
     if(f.accept){ dirInput.accept = f.accept; }
     wrap.appendChild(dirInput);
 
+    const pickRow = document.createElement('div');
+    pickRow.className = 'directory-picker';
+
     const pickBtn = document.createElement('button');
     pickBtn.type = 'button';
-    pickBtn.className = 'btn';
+    pickBtn.className = 'btn pick-directory';
     pickBtn.textContent = f.pick_label || '选择文件夹';
     pickBtn.addEventListener('click', () => dirInput.click());
-    wrap.appendChild(pickBtn);
+    pickRow.appendChild(pickBtn);
 
-    const info = document.createElement('div');
-    info.className = 'muted';
+    const info = document.createElement('span');
+    info.className = 'dir-info empty';
+    pickRow.appendChild(info);
+
+    wrap.appendChild(pickRow);
+
     const updateInfo = () => {
       const files = Array.from(dirInput.files || []);
       if(!files.length){
         hidden.value = '';
         info.textContent = '未选择文件夹';
+        info.classList.add('empty');
         return;
       }
       files.sort((a, b) => {
@@ -262,14 +270,15 @@ function renderField(container, f){
       if(folder){
         hidden.value = `dir://${folder}`;
         info.textContent = `已选择文件夹：${folder}（${files.length} 个文件）`;
+        info.classList.remove('empty');
       }else{
         hidden.value = `dir://${files.length}`;
         info.textContent = `已选择 ${files.length} 个文件`;
+        info.classList.remove('empty');
       }
     };
     updateInfo();
     dirInput.addEventListener('change', updateInfo);
-    wrap.appendChild(info);
 
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button';
@@ -280,6 +289,7 @@ function renderField(container, f){
       dirInput.value = '';
       hidden.value = '';
       info.textContent = '未选择文件夹';
+      info.classList.add('empty');
     });
     wrap.appendChild(clearBtn);
 
