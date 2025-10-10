@@ -483,7 +483,7 @@ function startDirectoryUploadProgress(states){
     state.progressFill.style.width = '0%';
     const count = state.sortedFiles ? state.sortedFiles.length : 0;
     const countText = count ? ` ${count} 张图片` : '';
-    state.progressText.textContent = `正在上传${countText}... 0%`;
+    state.progressText.textContent = `正在上传帧文件${countText}... 0%`;
   });
 }
 
@@ -498,15 +498,15 @@ function updateDirectoryUploadProgress(states, loaded, total){
     const countText = count ? ` ${count} 张图片` : '';
     if(percent !== null){
       state.progressFill.style.width = `${percent}%`;
-      state.progressText.textContent = `正在上传${countText}... ${percent}%`;
+      state.progressText.textContent = `正在上传帧文件${countText}... ${percent}%`;
     }else{
-      state.progressText.textContent = `正在上传${countText}...`;
+      state.progressText.textContent = `正在上传帧文件${countText}...`;
     }
   });
 }
 
 function markDirectoryUploadError(states, message){
-  const text = message ? `上传失败：${message}` : '上传失败，请重试';
+  const text = message ? `帧文件上传失败：${message}` : '帧文件上传失败，请重试';
   states.forEach(state => {
     if(!state || !(state.dirInput.files && state.dirInput.files.length)){ return; }
     if(state.progressHideTimer){
@@ -520,26 +520,38 @@ function markDirectoryUploadError(states, message){
   });
 }
 
-function showDirectoryLastFramePreview(state){
+function showDirectoryLastFramePreview(state, includePrompt){
   if(!state){ return; }
   const count = state.sortedFiles ? state.sortedFiles.length : 0;
-  const countText = count ? `共 ${count} 张图片，` : '';
+  const detailParts = [];
+  if(count){ detailParts.push(`共 ${count} 张图片`); }
   const file = state.lastImageFile;
+  state.revokePreview();
   if(file && isProbablyImageFile(file)){
-    state.revokePreview();
     const url = URL.createObjectURL(file);
     state.previewUrl = url;
     state.previewImg.src = url;
     state.previewImg.alt = state.lastImagePath || file.name || '';
     state.previewImg.style.display = 'block';
-    state.previewInfo.textContent = `${countText}最后一帧：${state.lastImagePath || file.name || ''}`;
+    let text = detailParts.length ? `${detailParts.join('，')}，` : '';
+    text += `最后一帧：${state.lastImagePath || file.name || ''}`;
+    if(text){ text += '。'; }
+    if(includePrompt){
+      text += '帧文件已全部上传，可点击“开始轮询”按钮。';
+    }
+    state.previewInfo.textContent = text;
     state.previewWrap.style.display = 'flex';
     return;
   }
   if(count){
     state.previewImg.style.display = 'none';
     state.previewImg.removeAttribute('src');
-    state.previewInfo.textContent = `${countText}未检测到可预览的图像。`;
+    let text = detailParts.length ? `${detailParts.join('，')}，` : '';
+    text += '未检测到可预览的图像。';
+    if(includePrompt){
+      text += '帧文件已全部上传，可点击“开始轮询”按钮。';
+    }
+    state.previewInfo.textContent = text;
     state.previewWrap.style.display = 'flex';
     return;
   }
@@ -556,14 +568,10 @@ function completeDirectoryUploadSuccess(states){
     state.progressWrap.style.display = 'flex';
     state.progressWrap.classList.remove('error');
     state.progressFill.style.width = '100%';
-    state.progressText.textContent = '上传完成';
-    showDirectoryLastFramePreview(state);
-    state.progressHideTimer = setTimeout(() => {
-      if(state.progressWrap){
-        state.progressWrap.style.display = 'none';
-      }
-      state.progressHideTimer = null;
-    }, 800);
+    const count = state.sortedFiles ? state.sortedFiles.length : 0;
+    const countText = count ? `（共 ${count} 张图片）` : '';
+    state.progressText.textContent = `帧文件上传完成${countText}，可点击“开始轮询”按钮。`;
+    showDirectoryLastFramePreview(state, true);
   });
 }
 
@@ -979,7 +987,10 @@ function bindSubmit(){
           completeDirectoryUploadSuccess(dirStates);
         }
         if(j.job_id){ document.getElementById('jobId').value = j.job_id; }
-        const successText = `提交成功，任务 ID：${j.job_id || ''}`.trim();
+        const baseSuccess = `提交成功，任务 ID：${j.job_id || ''}`.trim();
+        const successText = trackDirUpload
+          ? `${baseSuccess}。帧文件已上传完成，可点击“开始轮询”按钮查看任务状态。`
+          : baseSuccess;
         const cooldownSeconds = getCooldownSecondsForWorkflow(wfName);
         startSubmitCooldown(cooldownSeconds, successText);
         applyLongWorkflowNotice(wfName);
